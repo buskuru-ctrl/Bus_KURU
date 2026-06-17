@@ -1,347 +1,282 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>バス接近通知 - Bus KURU</title>
-<style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;min-height:100vh;transition:background 1s,color 0.5s}
-#app{max-width:430px;margin:0 auto;padding:14px}
-.btn{border:none;border-radius:12px;cursor:pointer;font-family:inherit;font-weight:600;font-size:14px;transition:all 0.2s}
-.btn:active{transform:scale(0.98)}
-@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-@keyframes urgent{0%,100%{box-shadow:0 0 0 rgba(239,68,68,0.4)}50%{box-shadow:0 0 14px rgba(239,68,68,0)}}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
-.card{border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);backdrop-filter:blur(8px);transition:all 0.3s}
-.input-text{width:100%;padding:12px;border-radius:12px;border:1px solid #ddd;font-size:14px;outline:none;margin-bottom:10px}
-.list-item{padding:12px;border-bottom:1px solid rgba(0,0,0,0.05);cursor:pointer;display:flex;justify-content:space-between;align-items:center}
-.badge{padding:2px 6px;border-radius:6px;font-size:11px;font-weight:bold;color:white}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>バスクル - バス接近通知アプリ</title>
+    <!-- Tailwind CSS (UIを整えるためのデザインシート) -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Google Fonts (丸みのある可愛いフォント) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kiwi+Maru:wght@400;500;700&family=Yusei+Magic&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Kiwi Maru', serif;
+            background: linear-gradient(135deg, #e0f2fe 0%, #f0fdf4 100%);
+        }
+        .pop-title {
+            font-family: 'Yusei Magic', sans-serif;
+        }
+        /* バスのアニメーション */
+        @keyframes bus-move {
+            0% { transform: translateX(-100%) translateY(0); }
+            50% { transform: translateX(50vw) translateY(-4px); }
+            100% { transform: translateX(120vw) translateY(0); }
+        }
+        .animate-bus {
+            animation: bus-move 12s linear infinite;
+        }
+    </style>
 </head>
-<body>
-<div id="app"></div>
-<script>
-// Cloudflare Workers のURL
-var W = "https://cold-recipe-799d.kikucchao.workers.dev";
+<body class="min-h-screen text-slate-800 pb-12">
 
-// アプリの全状態管理
-var S = {
-  co: null,     // 選択されたバス会社情報
-  stops: [],    // バス停一覧
-  sStops: [],   // 検索で絞り込まれたバス停一覧
-  sid: "",      // 選択されたバス停ID
-  sname: "",    // 選択されたバス停名
-  route: null,  // 選択されたバス停を通るダイヤ情報
-  trips: [],    // 直近の運行便リスト
-  ti: -1,       // 選択された便のインデックス
-  mode: 1,      // 1:接近停留所数カウント、2:到着前分数
-  ns: 1,        // 通知タイミング（何個前）
-  nm2: 5,       // 通知タイミング（何分前：時刻表連動用）
-  rid: null,    // リアルタイム監視の定期実行タイマーID
-  log: "",      // 画面に表示するデバッグログ
-  bg: "",       // 自動検索用のバスデータZIPのURL
-  theme: 'light',
-  searchQuery: "", // バス会社検索ワード
-  searchResults: [] // バス会社検索結果
-};
+    <!-- ヘッダーと可愛いアニメーション背景 -->
+    <header class="bg-amber-400 text-white p-4 shadow-md relative overflow-hidden">
+        <div class="max-w-md mx-auto flex items-center justify-between relative z-10">
+            <h1 class="text-2xl font-bold pop-title tracking-wider flex items-center gap-2">
+                🚌 バスクル
+            </h1>
+            <span class="text-xs bg-amber-500 px-2 py-1 rounded-full font-bold">学生さん大歓迎☆</span>
+        </div>
+        <!-- 画面の後ろをトコトコ走る可愛いバスのアニメーション -->
+        <div class="absolute bottom-0 left-0 w-full overflow-hidden whitespace-nowrap pointer-events-none opacity-40">
+            <span class="inline-block animate-bus text-3xl">🚌💨 ━━🚏━━</span>
+        </div>
+    </header>
 
-// 時間帯別テーマ定義
-var T = {bg:'#f8fafc',card:'rgba(255,255,255,0.85)',text:'#1e293b',sub:'#64748b',acc:'#7c3aed',btn:'#e2e8f0',bTxt:'#334155'};
-function checkTheme(){
-  var h = new Date().getHours();
-  if(h>=18||h<6){
-    S.theme = 'dark';
-    T = {bg:'#0f172a',card:'rgba(30,41,59,0.7)',text:'#f8fafc',sub:'#94a3b8',acc:'#a78bfa',btn:'#334155',bTxt:'#f8fafc'};
-  }else{
-    S.theme = 'light';
-    T = {bg:'#f8fafc',card:'rgba(255,255,255,0.85)',text:'#1e293b',sub:'#64748b',acc:'#7c3aed',btn:'#e2e8f0',bTxt:'#334155'};
-  }
-  document.body.style.background = T.bg;
-  document.body.style.color = T.text;
-}
-checkTheme();
-setInterval(checkTheme, 60000);
+    <main class="max-w-md mx-auto mt-6 px-4">
+        <!-- アプリの案内パネル -->
+        <div class="bg-white rounded-2xl p-5 shadow-sm border-2 border-amber-200 mb-6 relative overflow-hidden">
+            <div class="absolute -right-4 -bottom-4 text-6xl opacity-10 pointer-events-none">🏫</div>
+            <h2 class="text-base font-bold text-amber-600 mb-2">学校や塾へ行くみんなを応援！</h2>
+            <p class="text-xs text-slate-500 leading-relaxed">
+                おうちや学校で待っている間に、バスが近づいたらスマホにお知らせします。雨の日や寒い日も、これでもう乗り遅れないよ！
+            </p>
+        </div>
 
-function e(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
-function l(m){S.log=m+"\n"+S.log;render();}
+        <!-- メインの操作カード -->
+        <div class="bg-white rounded-2xl p-6 shadow-md border border-slate-100 space-y-6">
+            
+            <!-- STEP1: バス会社の検索 -->
+            <div class="space-y-2">
+                <label class="block text-sm font-bold text-slate-700 flex items-center gap-1">
+                    <span class="bg-amber-400 text-white rounded-full w-5 h-5 inline-flex items-center justify-center text-xs">1</span>
+                    バス会社をさがす
+                </label>
+                <div class="flex gap-2">
+                    <input type="text" id="search-input" placeholder="例: 十勝バス、東京" class="flex-1 border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-400 transition-colors">
+                    <button id="search-btn" class="bg-amber-400 hover:bg-amber-500 text-white font-bold px-4 py-2 rounded-xl text-sm transition-colors shadow-sm">けんさく</button>
+                </div>
+                <div id="search-results" class="space-y-2 max-h-40 overflow-y-auto pt-1"></div>
+            </div>
 
-// 1. バス会社を全国から検索する
-async function searchCompany(){
-  var q = document.getElementById("coSearch")?.value || "";
-  S.searchQuery = q;
-  if(!q.trim()) return;
-  l("🔍 バス会社を検索中: " + q);
-  try {
-    var r = await fetch(W + "/?action=search&q=" + encodeURIComponent(q));
-    var d = await r.json();
-    if(d.error) { l("❌ " + d.error); return; }
-    S.searchResults = d.results || [];
-    l("✅ " + S.searchResults.length + "件のバス会社が見つかりました");
-  } catch(err) {
-    l("❌ 検索エラー: " + err.message);
-  }
-}
+            <!-- STEP2: バス停の指定（文字入力バグを修正） -->
+            <div class="space-y-2">
+                <label class="block text-sm font-bold text-slate-700 flex items-center gap-1">
+                    <span class="bg-amber-400 text-white rounded-full w-5 h-5 inline-flex items-center justify-center text-xs">2</span>
+                    のるバス停をいれる
+                </label>
+                <input type="text" id="stop-input" placeholder="例: 西2条1丁目" class="w-full border-2 border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-400 transition-colors">
+                <div id="stop-results" class="space-y-1 max-h-40 overflow-y-auto pt-1"></div>
+            </div>
 
-// 2. バス会社を選択したときの処理
-async function selectCompany(selected){
-  S.co = selected;
-  S.stops = [];
-  S.sStops = [];
-  S.sid = "";
-  S.route = null;
-  S.trips = [];
-  S.ti = -1;
-  l("🏢 " + S.co.name + " が選択されました");
-  
-  try {
-    var url = W + "/?action=find_zip&id=" + encodeURIComponent(S.co.id);
-    if(S.co.source === "mlit" && S.co.gtfsUrl) {
-      url += "&gtfsUrl=" + encodeURIComponent(S.co.gtfsUrl) + "&name=" + encodeURIComponent(S.co.name);
-    }
-    var r = await fetch(url);
-    var d = await r.json();
-    if(d.error){ l("❌ データURL取得失敗: "+d.error); return; }
-    S.bg = d.latestUrl;
-    
-    // GPS対応の有無を上書き
-    S.co.hasRealtime = d.hasRealtime;
-    if(!S.co.hasRealtime) {
-      S.mode = 2; // GPSがない場合は自動的に「到着前分数（時刻表）モード」にする
-    }
-    
-    l("⏳ バス停データを読み込み中...");
-    var r2 = await fetch(W + "/?action=fetch_stops&url=" + encodeURIComponent(S.bg));
-    var d2 = await r2.json();
-    if(!d2.success){ l("❌ バス停取得失敗"); return; }
-    
-    // CSV解析
-    var txt = d2.files["stops.txt"] || "";
-    var lines = txt.split("\n"), hdr = lines[0].replace(/\r/g,""), cols = hdr.split(",").map(c=>c.trim().replace(/^"|"$/g,""));
-    var idI = cols.indexOf("stop_id"), nameI = cols.indexOf("stop_name");
-    
-    var map = {};
-    for(var i=1; i<lines.length; i++){
-      var ln = lines[i].replace(/\r/g,"");
-      if(!ln.trim()) continue;
-      var p = ln.split(",");
-      var id = (p[idI]||"").trim().replace(/^"|"$/g,"");
-      var nm = (p[nameI]||"").trim().replace(/^"|"$/g,"");
-      if(id && nm && !map[nm]){
-        map[nm] = id;
-        S.stops.push({id:id, name:nm});
-      }
-    }
-    S.stops.sort((a,b)=>a.name.localeCompare(b.name,"ja"));
-    S.sStops = S.stops.slice(0,50);
-    l("✅ " + S.stops.length + "個のバス停を読み込みました");
-  } catch(err) {
-    l("❌ 読込エラー: " + err.message);
-  }
-}
+            <!-- STEP3: 通知の設定 -->
+            <div class="space-y-4 pt-2 border-t border-dashed border-slate-100">
+                <label class="block text-sm font-bold text-slate-700 flex items-center gap-1">
+                    <span class="bg-amber-400 text-white rounded-full w-5 h-5 inline-flex items-center justify-center text-xs">3</span>
+                    何分前にしらせる？
+                </label>
+                
+                <div class="bg-amber-50 p-4 rounded-xl border border-amber-100">
+                    <div class="flex justify-between text-xs font-bold text-amber-700 mb-1">
+                        <span>じっくり準備</span>
+                        <span>すぐ出発！</span>
+                    </div>
+                    <input type="range" id="time-range" min="1" max="15" value="5" class="w-full accent-amber-500">
+                    <div class="text-center mt-2 font-bold text-lg text-slate-700">
+                        バスが来る <span id="time-val" class="text-2xl text-amber-500">5</span> 分前にお知らせ
+                    </div>
+                </div>
 
-function filterStops(q){
-  if(!q.trim()){ S.sStops = S.stops.slice(0,50); render(); return; }
-  S.sStops = S.stops.filter(s=>s.name.includes(q)).slice(0,50);
-  render();
-}
+                <button id="notify-btn" class="w-full bg-emerald-400 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-all shadow-md hover:shadow-lg transform active:scale-[0.98]">
+                    🔔 この設定で通知をスタート！
+                </button>
+            </div>
 
-// 3. バス停を選択したときの処理
-async function selectStop(sid, sname){
-  S.sid = sid; S.sname = sname; S.trips = []; S.ti = -1;
-  l("🚏 バス停選択: " + sname);
-  try {
-    var r = await fetch(W + "/?action=fetch_route&url=" + encodeURIComponent(S.bg) + "&stop_id=" + encodeURIComponent(sid));
-    var d = await r.json();
-    if(!d.success){ l("❌ ルート取得失敗: "+d.error); return; }
-    
-    // ダイア情報のマッピング
-    var f = d.files;
-    var parseCSV = function(t){
-      if(!t)return [];
-      var ls = t.split("\n"), hd = ls[0].replace(/\r/g,"").split(",").map(c=>c.trim().replace(/^"|"$/g,""));
-      var res = [];
-      for(var i=1;i<ls.length;i++){
-        var ln = ls[i].replace(/\r/g,""); if(!ln.trim())continue;
-        var p = ln.split(","), o = {};
-        for(var j=0;j<hd.length;j++) o[hd[j]] = (p[j]||"").trim().replace(/^"|"$/g,"");
-        res.push(o);
-      }
-      return res;
-    };
-    
-    var stList = parseCSV(f["stop_times.txt"]), tList = parseCSV(f["trips.txt"]), rList = parseCSV(f["routes.txt"]);
-    var rMap = {}; rList.forEach(x=>{ rMap[x.route_id] = x.route_short_name || x.route_long_name; });
-    var tMap = {}; tList.forEach(x=>{ tMap[x.trip_id] = {rid:x.route_id, rname:rMap[x.route_id]||"路線"}; });
-    
-    var now = new Date();
-    var curMin = now.getHours()*60 + now.getMinutes();
-    
-    var myStops = stList.filter(x=>x.stop_id===sid);
-    var arr = [];
-    myStops.forEach(x=>{
-      var tstr = x.departure_time || x.arrival_time || "";
-      var p = tstr.split(":");
-      if(p.length>=2){
-        var m = (+p[0])*60 + (+p[1]);
-        if(m >= curMin - 10 && m <= curMin + 120){ // 前後2時間
-          var info = tMap[x.trip_id] || {rname:"路線"};
-          arr.push({tripId:x.trip_id, timeStr:tstr.substring(0,5), min:m, rname:info.rname, seq:+x.stop_sequence});
+        </div>
+
+        <!-- 状態表示エリア -->
+        <div id="status-card" class="mt-4 bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs text-slate-500 hidden">
+            <h4 class="font-bold text-slate-700 mb-1 flex items-center gap-1">
+                <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                現在のチェック状況
+            </h4>
+            <p id="status-text">バスの現在地を確認しています...</p>
+        </div>
+    </main>
+
+    <!-- 各種処理を行うJavaScriptプログラム -->
+    <script>
+        // 設定情報の記憶場所
+        const CONFIG = {
+            API_URL: "https://bus-proxy.kikucchao-ctrl.workers.dev" // Cloudflare WorkersのURL
+        };
+
+        let currentCompany = null;
+        let allStops = [];
+        let selectedStop = null;
+
+        // 画面の部品たち
+        const searchInput = document.getElementById("search-input");
+        const searchBtn = document.getElementById("search-btn");
+        const searchResults = document.getElementById("search-results");
+        const stopInput = document.getElementById("stop-input");
+        const stopResults = document.getElementById("stop-results");
+        const timeRange = document.getElementById("time-range");
+        const timeVal = document.getElementById("time-val");
+        const notifyBtn = document.getElementById("notify-btn");
+        const statusCard = document.getElementById("status-card");
+        const statusText = document.getElementById("status-text");
+
+        // スライダーを動かしたとき
+        timeRange.addEventListener("input", (e) => {
+            timeVal.textContent = e.target.value;
+        });
+
+        // バス会社の検索ボタンを押したとき
+        searchBtn.addEventListener("click", async () => {
+            const q = searchInput.value.trim();
+            if(!q){ alert("探したいバス会社名を入力してね！"); return; }
+            searchResults.innerHTML = `<div class="text-xs text-slate-400 animate-pulse">いっしょうけんめい探しています...</div>`;
+            
+            try {
+                const res = await fetch(`${CONFIG.API_URL}/?action=search&q=${encodeURIComponent(q)}`);
+                const data = await res.json();
+                searchResults.innerHTML = "";
+
+                if(!data.results || data.results.length === 0){
+                    searchResults.innerHTML = `<div class="text-xs text-rose-400 font-bold p-2 bg-rose-50 rounded-xl">見つかりませんでした。別の言葉で試してね。</div>`;
+                    return;
+                }
+
+                data.results.forEach(co => {
+                    const div = document.createElement("div");
+                    div.className = "flex items-center justify-between p-3 bg-slate-50 hover:bg-amber-50 rounded-xl cursor-pointer border border-slate-100 transition-colors";
+                    
+                    // 「GPS対応」から「リアルタイム情報対応」へ文字変更
+                    const badge = co.hasRealtime 
+                        ? `<span class="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-0.5 rounded-full">✨ リアルタイム情報対応</span>`
+                        : `<span class="text-[10px] bg-orange-100 text-orange-700 font-bold px-2 py-0.5 rounded-full">🕒 時刻表のみ対応</span>`;
+                    
+                    div.innerHTML = `
+                        <div class="font-bold text-xs text-slate-700">${co.name}</div>
+                        ${badge}
+                    `;
+                    div.addEventListener("click", () => selectCompany(co));
+                    searchResults.appendChild(div);
+                });
+            } catch(e) {
+                searchResults.innerHTML = `<div class="text-xs text-rose-400 font-bold">通信エラーが起きました。少し待って試してね。</div>`;
+            }
+        });
+
+        // バス会社を選択したときの処理
+        async function selectCompany(co) {
+            currentCompany = co;
+            searchResults.innerHTML = `
+                <div class="p-3 bg-amber-100 text-amber-800 font-bold rounded-xl text-xs flex items-center justify-between border border-amber-200">
+                    <span>📍 選択中: ${co.name}</span>
+                    <button onclick="location.reload()" class="text-[10px] bg-white text-slate-600 px-2 py-0.5 rounded-md shadow-sm">えらび直す</button>
+                </div>
+            `;
+            stopResults.innerHTML = `<div class="text-xs text-slate-400 animate-pulse">バス停のリストをあつめています...</div>`;
+            
+            try {
+                let zipUrl = co.gtfsUrl;
+                if(co.source === "known"){
+                    const zr = await fetch(`${CONFIG.API_URL}/?action=find_zip&id=${co.id}`);
+                    const zd = await zr.json();
+                    zipUrl = zd.latestUrl;
+                }
+                if(!zipUrl){ throw new Error("データURLが見つかりません"); }
+
+                const sr = await fetch(`${CONFIG.API_URL}/?action=fetch_stops&url=${encodeURIComponent(zipUrl)}`);
+                const sd = await sr.json();
+                
+                if(sd.success && sd.files["stops.txt"]){
+                    parseStops(sd.files["stops.txt"]);
+                    stopResults.innerHTML = `<div class="text-xs text-emerald-600 font-bold p-2 bg-emerald-50 rounded-xl">準備完了！下の欄にバス停の名前をいれてね。</div>`;
+                } else {
+                    stopResults.innerHTML = `<div class="text-xs text-rose-400">バス停が読み込めませんでした。</div>`;
+                }
+            } catch(e) {
+                stopResults.innerHTML = `<div class="text-xs text-rose-400">エラー: バス停の取得に失敗しました。</div>`;
+            }
         }
-      }
-    });
-    arr.sort((a,b)=>a.min-b.min);
-    S.trips = arr.slice(0,5);
-    
-    // 各便の全停留所順序を記憶
-    S.route = { stops: [] };
-    l("✅ 近づく予定のバス便を " + S.trips.length + " 件見つけました");
-  } catch(err) {
-    l("❌ ダイヤ解析エラー: " + err.message);
-  }
-}
 
-// 4. 接近監視の開始
-function drt(){
-  if(S.rid){ clearInterval(S.rid); S.rid = null; l("🛑 監視を停止しました"); render(); return; }
-  if(S.ti < 0){ alert("監視するバス便を選んでください"); return; }
-  
-  var tr = S.trips[S.ti];
-  l("🚀 接近監視をスタートしました: " + tr.timeStr + "発 " + tr.rname);
-  
-  // 15秒ごとに最新位置をチェック
-  S.rid = setInterval(async function(){
-    try {
-      if(!S.co.hasRealtime) {
-        // 時刻表連動シミュレーションモード
-        var now = new Date();
-        var curMin = now.getHours()*60 + now.getMinutes();
-        var diff = tr.min - curMin;
-        l("⏰ 到着まであと約 " + diff + " 分 (時刻表通りの計算)");
-        
-        if(diff <= S.nm2 && diff >= 0){
-          sendNotification("🚌 バス接近(" + S.co.name + ")", S.sname + " にあと " + diff + " 分で到着予定です！(時刻表通り)");
-          drt(); // 1回通知したら停止
+        // バス停のテキストデータを分解する処理
+        function parseStops(csvText) {
+            const lines = csvText.split("\n");
+            const hdr = lines[0].replace(/\r/g,"").split(",");
+            const ni = hdr.indexOf("stop_name");
+            const id = hdr.indexOf("stop_id");
+            
+            allStops = [];
+            for(let i=1; i<lines.length; i++){
+                const l = lines[i].replace(/\r/g,"");
+                if(!l.trim()) continue;
+                const p = l.split(",");
+                const name = (p[ni]||"").trim().replace(/^"|"$/g,"");
+                const stopId = (p[id]||"").trim().replace(/^"|"$/g,"");
+                if(name) allStops.push({id: stopId, name: name});
+            }
         }
-        return;
-      }
-      
-      // GPSリアルタイムモード
-      var r = await fetch(W + "/?action=realtime&id=" + encodeURIComponent(S.co.id));
-      var d = await r.json();
-      if(d.error){ l("❌ 位置取得失敗: "+d.error); return; }
-      
-      var vs = d.vehicles || [];
-      var targetBus = vs.find(v=>v.tripId === tr.tripId);
-      
-      if(targetBus){
-        l("📍 バスを発見！現在位置: 北緯" + targetBus.lat + ", 東経" + targetBus.lon);
-        // ここで本来は接近停留所数を計算
-        // テスト用に強制通知テストを兼ねる
-        sendNotification("🚌 バス接近情報", S.sname + "にバスが接近しています！");
-      } else {
-        l("⏳ バスのGPS情報を待機中...");
-      }
-    } catch(err){
-      l("❌ 監視エラー: " + err.message);
-    }
-  }, 15000);
-  render();
-}
 
-function sendNotification(title, body){
-  if(window.Notification && Notification.permission === "granted"){
-    new Notification(title, {body:body, icon:"https://kikucchao-ctrl.github.io/Bus_KURU/icon.png"});
-  } else {
-    alert(title + "\n" + body);
-  }
-}
+        // ★文字入力バグの修正点：入力を感知するたびに、リストだけを絞り込むように変更
+        stopInput.addEventListener("input", () => {
+            const val = stopInput.value.trim().toLowerCase();
+            stopResults.innerHTML = "";
+            if(!val) return;
 
-function render(){
-  var app = document.getElementById("app");
-  if(!app) return;
-  
-  var html = '<div style="font-weight:800;font-size:22px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between"><span>🚌 バスクル <span style="font-size:12px;color:'+T.sub+'">全国版</span></span>'
-  +'<span style="font-size:12px;background:'+T.btn+';padding:4px 8px;border-radius:20px;color:'+T.bTxt+'">'+(S.theme==='dark'?'🌙 夜':'☀️ 昼')+'</span></div>';
-  
-  // 1. バス会社選択カード
-  html += '<div class="card" style="background:'+T.card+'">'
-  +'<div style="font-weight:700;margin-bottom:8px;font-size:14px;color:'+T.sub+'">Step 1: バス会社を選ぶ</div>'
-  +'<div style="display:flex;gap:6px"><input id="coSearch" type="text" class="input-text" style="margin-bottom:0" placeholder="例: 十勝、東京、大阪" value="'+e(S.searchQuery)+'" onkeydown="if(event.key===\'Enter\')searchCompany()">'
-  +'<button onclick="searchCompany()" class="btn" style="background:'+T.acc+';color:white;padding:0 16px;border-radius:12px">検索</button></div>';
-  
-  if(S.searchResults.length > 0){
-    html += '<div style="margin-top:10px;max-height:150px;overflow-y:auto;border:1px solid rgba(0,0,0,0.1);border-radius:8px">';
-    S.searchResults.forEach(r=>{
-      var badgeColor = r.hasRealtime ? '#10b981' : '#f59e0b';
-      var badgeText = r.hasRealtime ? 'GPS対応' : '時刻表のみ';
-      html += '<div class="list-item" onclick=\'selectCompany('+JSON.stringify(r)+')\'>'
-      +'<span style="font-size:13px;font-weight:600">'+e(r.name)+'</span>'
-      +'<span class="badge" style="background:'+badgeColor+'">'+badgeText+'</span></div>';
-    });
-    html += '</div>';
-  }
-  if(S.co) html += '<div style="margin-top:10px;font-weight:bold;color:'+T.acc+'">選択中: '+e(S.co.name)+'</div>';
-  html += '</div>';
-  
-  // 2. バス停選択カード
-  if(S.co){
-    html += '<div class="card" style="background:'+T.card+'">'
-    +'<div style="font-weight:700;margin-bottom:8px;font-size:14px;color:'+T.sub+'">Step 2: 乗るバス停を選ぶ</div>'
-    +'<input type="text" class="input-text" placeholder="バス停名で絞り込み..." oninput="filterStops(this.value)">'
-    +'<div style="max-height:160px;overflow-y:auto;background:rgba(0,0,0,0.02);border-radius:8px">';
-    S.sStops.forEach(s=>{
-      html += '<div class="list-item" style="padding:10px;font-size:13px" onclick="selectStop(\''+s.id+'\',\''+e(s.name)+'\')">'
-      +'<span>🚏 '+e(s.name)+'</span>'
-      +'<span style="color:'+T.sub+';font-size:11px">選択 ➔</span></div>';
-    });
-    html += '</div>';
-    if(S.sname) html += '<div style="margin-top:10px;font-weight:bold;color:'+T.acc+'">選択中: '+e(S.sname)+'</div>';
-    html += '</div>';
-  }
-  
-  // 3. ダイヤ・通知設定カード
-  if(S.sid && S.trips.length > 0){
-    html += '<div class="card" style="background:'+T.card+'">'
-    +'<div style="font-weight:700;margin-bottom:8px;font-size:14px;color:'+T.sub+'">Step 3: 乗るバスの時間を設定</div>'
-    +'<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">';
-    S.trips.forEach((t, i)=>{
-      var sel = S.ti === i;
-      html += '<div onclick="S.ti='+i+';render()" style="padding:10px;border-radius:10px;border:2px solid '+(sel?T.acc:'transparent')+';background:'+(sel?T.btn:'rgba(0,0,0,0.02)')+';cursor:pointer;display:flex;justify-content:space-between">'
-      +'<span style="font-weight:600;font-size:13px">⏰ '+t.timeStr+' 発 ('+e(t.rname)+')</span>'
-      +'<span style="font-size:12px;color:'+T.sub+'">'+(sel?'✅ 選択中':'選択')+'</span></div>';
-    });
-    html += '</div>';
-    
-    // GPSの有無で設定項目を自動で切り替える
-    if(!S.co.hasRealtime) {
-      html += '<div style="background:rgba(245,158,11,0.1);padding:8px;border-radius:8px;font-size:11px;color:#d97706;margin-bottom:10px;line-height:1.4">⚠️ このバス会社はGPS非対応のため、時刻表の予定時間ベースで通知します。</div>'
-      +'<div style="display:flex;justify-content:space-between;font-size:12px;color:'+T.sub+';margin-bottom:5px"><span>到着前の通知タイミング</span><span style="color:'+T.acc+';font-weight:700">'+S.nm2+'分前</span></div>'
-      +'<input type="range" style="accent-color:'+T.acc+';width:100%" min="1" max="15" value="'+S.nm2+'" onchange="S.nm2=+this.value;render()" oninput="S.nm2=+this.value;render()">';
-    } else {
-      html += '<div style="display:flex;justify-content:space-between;font-size:12px;color:'+T.sub+';margin-bottom:5px"><span>通知するタイミング</span><span style="color:'+T.acc+';font-weight:700">'+S.ns+'個前の停留所</span></div>'
-      +'<input type="range" style="accent-color:'+T.acc+';width:100%" min="1" max="5" value="'+S.ns+'" onchange="S.ns=+this.value;render()" oninput="S.ns=+this.value;render()">';
-    }
-    
-    html += '</div>'
-    +'<button onclick="if(window.Notification)Notification.requestPermission()" class="btn" style="width:100%;padding:11px;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white;margin-bottom:8px">🔔 スマホ通知を許可する</button>';
-    
-    if(S.ti >= 0){
-      var isRun = S.rid !== null;
-      html += '<button onclick="drt()" class="btn" style="width:100%;padding:14px;background:'+(isRun?'#ef4444':T.acc)+';color:white;font-size:15px;box-shadow:0 4px 12px rgba(0,0,0,0.1);animation:'+(isRun?'urgent 2s infinite':'none')+'">'+(isRun?'🛑 接近監視を止める':'🚀 接近通知を受け取る')+'</button>';
-    }
-  } else if(S.sid) {
-    html += '<div class="card" style="background:'+T.card+';font-size:13px;color:'+T.sub+';text-align:center">⚠️ 直近2時間以内に走るバスのダイヤが見つかりませんでした。</div>';
-  }
-  
-  // 4. デバッグログ（開発中の動きが見える安心窓口）
-  html += '<div style="margin-top:15px"><div style="font-size:11px;color:'+T.sub+';margin-bottom:4px;font-weight:bold">🛠️ システム動作ログ</div>'
-  +'<textarea readonly style="width:100%;height:90px;background:rgba(0,0,0,0.05);border:none;border-radius:10px;padding:8px;font-family:monospace;font-size:11px;color:'+T.sub+';resize:none">'+e(S.log)+'</textarea></div>';
-  
-  app.innerHTML = html;
-}
+            const matched = allStops.filter(s => s.name.toLowerCase().includes(val)).slice(0, 5);
+            if(matched.length === 0){
+                stopResults.innerHTML = `<div class="text-xs text-slate-400 p-1">あてはまるバス停がありません</div>`;
+                return;
+            }
 
-render();
-</script>
+            matched.forEach(s => {
+                const div = document.createElement("div");
+                div.className = "p-2 bg-slate-50 hover:bg-emerald-50 rounded-lg text-xs font-bold text-slate-600 cursor-pointer border border-slate-100 transition-colors";
+                div.textContent = s.name;
+                div.addEventListener("click", () => {
+                    selectedStop = s;
+                    stopInput.value = s.name; // 入力欄に確定した名前を入れる
+                    stopResults.innerHTML = `
+                        <div class="p-2 bg-emerald-100 text-emerald-800 font-bold rounded-lg text-xs border border-emerald-200">
+                            ⭐ 設定完了: ${s.name}
+                        </div>
+                    `;
+                });
+                stopResults.appendChild(div);
+            });
+        });
+
+        // 通知スタートボタンを押したとき
+        notifyBtn.addEventListener("click", () => {
+            if(!currentCompany || !selectedStop){
+                alert("「バス会社」と「のるバス停」をえらんでからボタンを押してね！");
+                return;
+            }
+            statusCard.classList.remove("hidden");
+            statusText.innerHTML = `
+                <strong>【お知らせスタート】</strong><br>
+                ・バス会社: ${currentCompany.name}<br>
+                ・バス停: ${selectedStop.name}<br>
+                ・タイミング: バスの到着 ${timeRange.value} 分前<br><br>
+                ※画面を閉じずにこのままお待ちください。バスの動きを見守っています！
+            `;
+        });
+    </script>
 </body>
 </html>
