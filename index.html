@@ -1,647 +1,591 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF
-8">
-<meta name="viewport" content="width=device
-width, initial scale=1.0">
-<title>
-バス接近通知 Bus KURU</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>バス接近通知 - Bus KURU</title>
 <style>
-*{box
-sizing:border box;margin:0;padding:0}
-body{font
-family:'Hiragino Sans','Noto Sans JP',sans serif;min
-height:100vh;transition:background 1s,color 0.5s}
-#app{max
-width:430px;margin:0 auto;padding:14px}
-.btn{border:none;border
-radius:12px;cursor:pointer;font family:inherit;font
-weight:600;font si ze:14px}
-@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(
-3px)}}
-@keyframes urgent{0%,100%{box
-shadow:0 0 0 0 rgba(239,68,68,0.4)}50%{box shadow:0
-0 0 14px rgba(239,68,68,0)}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;min-height:100vh;transition:background 1s,color 0.5s}
+#app{max-width:430px;margin:0 auto;padding:14px}
+.btn{border:none;border-radius:12px;cursor:pointer;font-family:inherit;font-weight:600;font-size:14px}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes urgent{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)}50%{box-shadow:0 0 0 14px rgba(239,68,68,0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
-<
-</
+</style>
 </head>
 <body>
 <div id="app"></div>
 <script>
-var W="https://cold
-recipe 799d.kikucchao.workers.dev";
-//
-時間帯テーマ
+var W="https://cold-recipe-799d.kikucchao.workers.dev";
+
+// 時間帯テーマ
 function getTheme(){
-var h=new Date().getHours();
-if(h>=5&&h<8)return"dawn";
-if(h>=8&&h<17)return"day";
-if(h>=17&&h<19)return"du sk";
-if(h>=19&&h<22)return"evening";
-return"night";
+  var h=new Date().getHours();
+  if(h>=5&&h<8)return"dawn";
+  if(h>=8&&h<17)return"day";
+  if(h>=17&&h<19)return"dusk";
+  if(h>=19&&h<22)return"evening";
+  return"night";
 }
 var TH={
-dawn:{bg:"#1a1035",card:"rgba(255,220,150,0.08)",border:"rgba(255,200,100,0.2)",text:"
-#f0e0c0",sub:"#a09080",acc:"#f59e0b",hdr:"linear
-#f0e0c0",sub:"#a09080",acc:"#f59e0b",hdr:"linear--gradient(135deg,#2d1b4e,#1a1035)",icon:"gradient(135deg,#2d1b4e,#1a1035)",icon:"🌅",label:"",label:"夜明け夜明け"},"},
-day:{bg:"#e8f4fd",card:"rgba(255,255,255,0.95)",border:"rgbday:{bg:"#e8f4fd",card:"rgba(255,255,255,0.95)",border:"rgba(14,165,233,0.2)",text:"#0f2a(14,165,233,0.2)",text:"#0f2847",sub:"#64748b",acc:"#0ea5e9",hdr:"linear847",sub:"#64748b",acc:"#0ea5e9",hdr:"linear--gradient(135deg,#0ea5e9,#38bdf8)",icon:"gradient(135deg,#0ea5e9,#38bdf8)",icon:"☀☀️",label:"",label:"昼昼"},"},
-dusk:{bg:"#1a0f2e",card:"rgba(249,115,22,0.08)",border:"rgba(249,115,22,0.2)",text:"#fdedusk:{bg:"#1a0f2e",card:"rgba(249,115,22,0.08)",border:"rgba(249,115,22,0.2)",text:"#fde8d0",sub:"#a08060",acc:"#f97316",hdr8d0",sub:"#a08060",acc:"#f97316",hdr:"linear:"linear--gradient(135deg,#f97316,#f59e0b)",icon:"gradient(135deg,#f97316,#f59e0b)",icon:"🌇",label:"",label:"夕方夕方"},"},
-evening:{bg:"#0a1628",card:"rgba(30,41,59,0.9)",border:"#334155",text:"#e2e8f0",sub:"#evening:{bg:"#0a1628",card:"rgba(30,41,59,0.9)",border:"#334155",text:"#e2e8f0",sub:"#475569",acc:"#38bdf8",hdr:"linear475569",acc:"#38bdf8",hdr:"linear--gradient(135deg,#1e3a5f,#0a1628)",icon:"gradient(135deg,#1e3a5f,#0a1628)",icon:"🌆",label:"",label:"夜夜"},"},
-night:{bg:night:{bg:"#050d1a",card:"rgba(15,25,45,0.9)",border:"#1e293b",text:"#94a3b8",sub:"#33"#050d1a",card:"rgba(15,25,45,0.9)",border:"#1e293b",text:"#94a3b8",sub:"#334155",acc:"#7c3aed",hdr:"linear4155",acc:"#7c3aed",hdr:"linear--gradient(135deg,#0f172a,#050d1a)",icon:"gradient(135deg,#0f172a,#050d1a)",icon:"🌃",label:"",label:"深深夜夜"}"}
+  dawn:{bg:"#1a1035",card:"rgba(255,220,150,0.08)",border:"rgba(255,200,100,0.2)",text:"#f0e0c0",sub:"#a09080",acc:"#f59e0b",hdr:"linear-gradient(135deg,#2d1b4e,#1a1035)",icon:"🌅",label:"夜明け"},
+  day:{bg:"#e8f4fd",card:"rgba(255,255,255,0.95)",border:"rgba(14,165,233,0.2)",text:"#0f2847",sub:"#64748b",acc:"#0ea5e9",hdr:"linear-gradient(135deg,#0ea5e9,#38bdf8)",icon:"☀️",label:"昼"},
+  dusk:{bg:"#1a0f2e",card:"rgba(249,115,22,0.08)",border:"rgba(249,115,22,0.2)",text:"#fde8d0",sub:"#a08060",acc:"#f97316",hdr:"linear-gradient(135deg,#f97316,#f59e0b)",icon:"🌇",label:"夕方"},
+  evening:{bg:"#0a1628",card:"rgba(30,41,59,0.9)",border:"#334155",text:"#e2e8f0",sub:"#475569",acc:"#38bdf8",hdr:"linear-gradient(135deg,#1e3a5f,#0a1628)",icon:"🌆",label:"夜"},
+  night:{bg:"#050d1a",card:"rgba(15,25,45,0.9)",border:"#1e293b",text:"#94a3b8",sub:"#334155",acc:"#7c3aed",hdr:"linear-gradient(135deg,#0f172a,#050d1a)",icon:"🌃",label:"深夜"}
 };
-};
-//
-// 曜日判定曜日判定
+
+// 曜日判定
 function getDayType(){
-function getDayType(){
-var d=new Date().getDay();var d=new Date().getDay();
-return(d===0||d===6)?"holireturn(d===0||d===6)?"holiday":"weekday";day":"weekday";
+  var d=new Date().getDay();
+  return(d===0||d===6)?"holiday":"weekday";
 }
-}
+
 var S={
-var S={
-scr:"welcome",route:null,ti:0,scr:"welcome",route:null,ti:0,
-gurl:null,rid:null,hasRT:false,gurl:null,rid:null,hasRT:false,
-stops:[],stopsWithDest:{},sf:"",cachedFiles:null,stops:[],stopsWithDest:{},sf:"",cachedFiles:null,
-sq:"",sr:[],lm:"",le:"",sq:"",sr:[],lm:"",le:"",
-nm:"stops",ns:2,nm2:5,nm:"stops",ns:2,nm2:5,
-ban:null,nids:[],now:0,ss:false,ban:null,nids:[],now:0,ss:false,
-showTimetable:false,tshowTimetable:false,timetableDayType:"weekday",imetableDayType:"weekday",
-rv:[],rd:{},re:"",lu:0,rv:[],rd:{},re:"",lu:0,
-mn:"",ms:"",mt:"",mi:"3",mn:"",ms:"",mt:"",mi:"3",
-theme:getTheme(),dayType:getDayType()theme:getTheme(),dayType:getDayType()
+  scr:"welcome",route:null,ti:0,
+  gurl:null,rid:null,hasRT:false,
+  stops:[],stopsWithDest:{},sf:"",cachedFiles:null,
+  sq:"",sr:[],lm:"",le:"",
+  nm:"stops",ns:2,nm2:5,
+  ban:null,nids:[],now:0,ss:false,
+  showTimetable:false,timetableDayType:"weekday",
+  rv:[],rd:{},re:"",lu:0,
+  mn:"",ms:"",mt:"",mi:"3",
+  theme:getTheme(),dayType:getDayType()
 };
-};
-function gn(){var n=new Date();return
-function gn(){var n=new Date();return n.getHours()*60+n.getMinutes()+n.getSeconds()/60;}n.getHours()*60+n.getMinutes()+n.getSeconds()/60;}
+function gn(){var n=new Date();return n.getHours()*60+n.getMinutes()+n.getSeconds()/60;}
 S.now=gn();
-S.now=gn();
-function e(s){return
-function e(s){return String(s||String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,""").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}&quot;");}
+function e(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function pt(s){if(!s)return 0;var p=s.split(":");return+p[0]*60+(+p[1])+(p[2]?+p[2]/60:0);}
-function pt(s){if(!s)return 0;var p=s.split(":");return+p[0]*60+(+p[1])+(p[2]?+p[2]/60:0);}
-function ft(m){var
-function ft(m){var h=Math.floor(m/60)%24,n=Math.round(m%60);return(h<10?"0":"")+h+":"+(n<10?"0":"")h=Math.floor(m/60)%24,n=Math.round(m%60);return(h<10?"0":"")+h+":"+(n<10?"0":"")+n;}+n;}
+function ft(m){var h=Math.floor(m/60)%24,n=Math.round(m%60);return(h<10?"0":"")+h+":"+(n<10?"0":"")+n;}
 function sv(c){try{localStorage.setItem("bk9",JSON.stringify(c));}catch(x){}}
-function sv(c){try{localStorage.setItem("bk9",JSON.stringify(c));}catch(x){}}
-function lv(){try{var s=localStorage.getItem("bk9");return
-function lv(){try{var s=localStorage.getItem("bk9");return s?JSON.parse(s)s?JSON.parse(s):null;}catch(x){return null;}}:null;}catch(x){return null;}}
+function lv(){try{var s=localStorage.getItem("bk9");return s?JSON.parse(s):null;}catch(x){return null;}}
+
 function csv(t){
-function csv(t){
-if(!t)return[];if(!t)return[];
-var ls=t.trim().split("var ls=t.trim().split("¥¥n");if(ls.length<2)return[];n");if(ls.length<2)return[];
-var hd=ls[0].replace(/var hd=ls[0].replace(/¥¥r/g,"").split(",").map(function(h){return r/g,"").split(",").map(function(h){return h.trim().replace(/^"|"$/g,"");});h.trim().replace(/^"|"$/g,"");});
-return ls.slice(1).filter(functreturn ls.slice(1).filter(function(l){return l.trim();}).map(function(l){ion(l){return l.trim();}).map(function(l){
-var v=[],c="",q=false,ch=l.replace(/var v=[],c="",q=false,ch=l.replace(/¥¥r/g,"").split("");r/g,"").split("");
-for(var i=0;i<ch.length;i++){if(ch[i]==='"'){q=!q;}else for(var i=0;i<ch.length;i++){if(ch[i]==='"'){q=!q;}else if(ch[i]===","&&!q){v.push(c.trim());c="";}else{c+=ch[i];}}if(ch[i]===","&&!q){v.push(c.trim());c="";}else{c+=ch[i];}}
-v.push(c.trim());var o={};hd.v.push(c.trim());var o={};hd.forEach(function(h,i){o[h]=v[i]||"";});return o;forEach(function(h,i){o[h]=v[i]||"";});return o;
-});});
+  if(!t)return[];
+  var ls=t.trim().split("\n");if(ls.length<2)return[];
+  var hd=ls[0].replace(/\r/g,"").split(",").map(function(h){return h.trim().replace(/^"|"$/g,"");});
+  return ls.slice(1).filter(function(l){return l.trim();}).map(function(l){
+    var v=[],c="",q=false,ch=l.replace(/\r/g,"").split("");
+    for(var i=0;i<ch.length;i++){if(ch[i]==='"'){q=!q;}else if(ch[i]===","&&!q){v.push(c.trim());c="";}else{c+=ch[i];}}
+    v.push(c.trim());var o={};hd.forEach(function(h,i){o[h]=v[i]||"";});return o;
+  });
 }
-}
-// calendar.txt
-// calendar.txtから今日有効なから今日有効なservice_idservice_idを取得を取得
+
+// calendar.txtから今日有効なservice_idを取得
 function getTodayServiceIds(calendarTxt,calendarDatesTxt){
-function getTodayServiceIds(calendarTxt,calendarDatesTxt){
-var today=new Date();var today=new Date();
-var var dayNames=["sunday","monday","tuesday","wednesday","thursday","friday","sadayNames=["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];turday"];
-var todayDay=dayNames[today.getDay()];var todayDay=dayNames[today.getDay()];
-var todayStr=today.getFullYear()+("0"+(today.getMonth()+1)).slice(var todayStr=today.getFullYear()+("0"+(today.getMonth()+1)).slice(--
-2)+("0"+today.getDate()).slice(
-2)+("0"+today.getDate()).slice(--2);2);
-var ids=new Set();var ids=new Set();
-if(calendarTxt){if(calendarTxt){
-csv(calendarTxt).forEach(function(r){csv(calendarTxt).forEach(function(r){
-if(r[todayDif(r[todayDay]==="1"||r[todayDay]==="true"){ay]==="1"||r[todayDay]==="true"){
-var start=r.start_date||"",end=r.end_date||"";var start=r.start_date||"",end=r.end_date||"";
-if((!start||todayStr>=start)&&(!end||todayStr<=end)){if((!start||todayStr>=start)&&(!end||todayStr<=end)){
-ids.add(r.service_id);ids.add(r.service_id);
-}}
-}}
-});});
-}}
-if(calendarDatesTxt){if(calendarDatesTxt){
-csv(calendarDatesTxt).forEach(function(r){csv(calendarDatesTxt).forEach(function(r){
-if(r.date===todayStr){if(r.date===todayStr){
-if(r.exception_type==="1")ids.add(r.service_id);if(r.exception_type==="1")ids.add(r.service_id);
-else if(r.exception_type==="2")ids.delete(r.service_id);else if(r.exception_type==="2")ids.delete(r.service_id);
-}}
-});});
-}}
-return ids;return ids;
+  var today=new Date();
+  var dayNames=["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+  var todayDay=dayNames[today.getDay()];
+  var todayStr=today.getFullYear()+("0"+(today.getMonth()+1)).slice(-2)+("0"+today.getDate()).slice(-2);
+  var ids=new Set();
+
+  if(calendarTxt){
+    csv(calendarTxt).forEach(function(r){
+      if(r[todayDay]==="1"||r[todayDay]==="true"){
+        var start=r.start_date||"",end=r.end_date||"";
+        if((!start||todayStr>=start)&&(!end||todayStr<=end)){
+          ids.add(r.service_id);
+        }
+      }
+    });
+  }
+
+  if(calendarDatesTxt){
+    csv(calendarDatesTxt).forEach(function(r){
+      if(r.date===todayStr){
+        if(r.exception_type==="1")ids.add(r.service_id);
+        else if(r.exception_type==="2")ids.delete(r.service_id);
+      }
+    });
+  }
+  return ids;
 }
-}
-//
-// 曜日種別ごとの曜日種別ごとのservice_idservice_idセセットを返すットを返す
+
+// 曜日種別ごとのservice_idセットを返す
 function getServiceIdsByDayType(calendarTxt){
-function getServiceIdsByDayType(calendarTxt){
-var weekdayIds=new Set(),holidayIds=new Set();var weekdayIds=new Set(),holidayIds=new Set();
-if(!calendarTxt)return{weekday:weekdayIds,holiday:holidayIds};if(!calendarTxt)return{weekday:weekdayIds,holiday:holidayIds};
-csv(calendarTxt).forEach(function(r){csv(calendarTxt).forEach(function(r){
-var var hasWeekday=["monday","tuesday","wednesday"hasWeekday=["monday","tuesday","wednesday","thursday","friday"].some(function(d){r,"thursday","friday"].some(function(d){return r[d]==="1";});eturn r[d]==="1";});
-var hasHoliday=["saturday","sunday"].some(function(d){return r[d]==="1";});var hasHoliday=["saturday","sunday"].some(function(d){return r[d]==="1";});
-if(hasWeekday)weekdayIds.add(r.service_id);if(hasWeekday)weekdayIds.add(r.service_id);
-if(hasHoliday)holidayIds.add(r.service_id);if(hasHoliday)holidayIds.add(r.service_id);
-});});
-return{weekreturn{weekday:weekdayIds,holiday:holidayIds};day:weekdayIds,holiday:holidayIds};
+  var weekdayIds=new Set(),holidayIds=new Set();
+  if(!calendarTxt)return{weekday:weekdayIds,holiday:holidayIds};
+  csv(calendarTxt).forEach(function(r){
+    var hasWeekday=["monday","tuesday","wednesday","thursday","friday"].some(function(d){return r[d]==="1";});
+    var hasHoliday=["saturday","sunday"].some(function(d){return r[d]==="1";});
+    if(hasWeekday)weekdayIds.add(r.service_id);
+    if(hasHoliday)holidayIds.add(r.service_id);
+  });
+  return{weekday:weekdayIds,holiday:holidayIds};
 }
-}
+
 function buildRoute(f,sid,serviceIds){
-function buildRoute(f,sid,serviceIds){
-var var st=csv(f["stops.txt"]),stm=csv(f["stop_times.txt"]),tr=csv(f["trips.txt"]),ro=csv(f["routes.tst=csv(f["stops.txt"]),stm=csv(f["stop_times.txt"]),tr=csv(f["trips.txt"]),ro=csv(f["routes.txt"]);xt"]);
-// serviceIds// serviceIdsでフィルタ（指定がなければ全便）でフィルタ（指定がなければ全便）
-var validTripIds=new Set();var validTripIds=new Set();
-tr.forEach(function(t){tr.forEach(function(t){
-if(!serviceIds||serviceIds.size===0||serviceIds.has(t.service_id))validTripIds.add(t.triif(!serviceIds||serviceIds.size===0||serviceIds.has(t.service_id))validTripIds.add(t.trip_id);p_id);
-});});
-var tids=[];var tids=[];
-stm.forEach(function(r){if(r.stop_id===sid&&validTripIds.has(r.trip_id)&&tids.indexOfstm.forEach(function(r){if(r.stop_id===sid&&validTripIds.has(r.trip_id)&&tids.indexOf(r.trip_id)<0)tids.push(r.trip_id)<0)tids.push(r.trip_id);});(r.trip_id);});
-if(!tids.length)return null;if(!tids.length)return null;
-var tid=tids[0];var tid=tids[0];
-var ts=stm.filter(function(r){return var ts=stm.filter(function(r){return r.trip_id===tid;}).sort(function(a,b){return+a.stop_sequencer.trip_id===tid;}).sort(function(a,b){return+a.stop_sequence--+b.stop_sequence;});+b.stop_sequence;});
-var sl=ts.map(function(r){var s=st.filter(function(x){return var sl=ts.map(function(r){var s=st.filter(function(x){return x.stopx.stop_id===r.stop_id;})[0];return{id:r.stop_id,name:s?s.stop_name:r.stop_id};});_id===r.stop_id;})[0];return{id:r.stop_id,name:s?s.stop_name:r.stop_id};});
-var sc=tids.slice(0,80).map(function(t){var a=stm.filter(function(r){return var sc=tids.slice(0,80).map(function(t){var a=stm.filter(function(r){return r.trip_id===t;}).sort(function(a,b){return+a.stop_sequencer.trip_id===t;}).sort(function(a,b){return+a.stop_sequence--+b.stop_sequence;});return +b.stop_sequence;});return a[0]?(a[0].depara[0]?(a[0].departure_time||a[0].arrival_time):null;}).filter(Boolean).sort();ture_time||a[0].arrival_time):null;}).filter(Boolean).sort();
-var rid=(tr.filter(function(t){return t.trip_id===tid;})[0]||{}).route_id;var rid=(tr.filter(function(t){return t.trip_id===tid;})[0]||{}).route_id;
-var rr=ro.filter(function(r){return r.route_id===rid;})[0]||{};var rr=ro.filter(function(r){return r.route_id===rid;})[0]||{};
-var tm={};tids.forEach(function(t){var a=stm.filtvar tm={};tids.forEach(function(t){var a=stm.filter(function(r){return er(function(r){return r.trip_id===t;}).sort(function(a,b){return+a.stop_sequencer.trip_id===t;}).sort(function(a,b){return+a.stop_sequence--+b.stop_sequence;});if(a[0])tm[t]=a[0].departure_time||a[0].arrival_time;});+b.stop_sequence;});if(a[0])tm[t]=a[0].departure_time||a[0].arrival_time;});
-// // 停留所の到着時刻インデックス（この停留所に到着する時刻）停留所の到着時刻インデックス（この停留所に到着する時刻）
-var stopIdx=sl.findIndex(function(x){return x.id===sid;});var stopIdx=sl.findIndex(function(x){return x.id===sid;});
-vvar arrivalTimes=tids.slice(0,80).map(function(t){ar arrivalTimes=tids.slice(0,80).map(function(t){
-var row=stm.filter(function(r){return r.trip_id===t&&r.stop_id===sid;})[0];var row=stm.filter(function(r){return r.trip_id===t&&r.stop_id===sid;})[0];
-return row?(row.arrival_time||row.departure_time):null;return row?(row.arrival_time||row.departure_time):null;
-}).filter(Boolean).sort();}).filter(Boolean).sort();
-return{name:rr.route_long_name||rr.return{name:rr.route_long_name||rr.route_short_name||"route_short_name||"路線路線",stops:sl,schedules:sc,arrivalTimes:arrivalTimes,iv:3,tm:tm,stopIdx:stopIdx};",stops:sl,schedules:sc,arrivalTimes:arrivalTimes,iv:3,tm:tm,stopIdx:stopIdx};
+  var st=csv(f["stops.txt"]),stm=csv(f["stop_times.txt"]),tr=csv(f["trips.txt"]),ro=csv(f["routes.txt"]);
+  // serviceIdsでフィルタ（指定がなければ全便）
+  var validTripIds=new Set();
+  tr.forEach(function(t){
+    if(!serviceIds||serviceIds.size===0||serviceIds.has(t.service_id))validTripIds.add(t.trip_id);
+  });
+  var tids=[];
+  stm.forEach(function(r){if(r.stop_id===sid&&validTripIds.has(r.trip_id)&&tids.indexOf(r.trip_id)<0)tids.push(r.trip_id);});
+  if(!tids.length)return null;
+  var tid=tids[0];
+  var ts=stm.filter(function(r){return r.trip_id===tid;}).sort(function(a,b){return+a.stop_sequence-+b.stop_sequence;});
+  var sl=ts.map(function(r){var s=st.filter(function(x){return x.stop_id===r.stop_id;})[0];return{id:r.stop_id,name:s?s.stop_name:r.stop_id};});
+  var sc=tids.slice(0,80).map(function(t){var a=stm.filter(function(r){return r.trip_id===t;}).sort(function(a,b){return+a.stop_sequence-+b.stop_sequence;});return a[0]?(a[0].departure_time||a[0].arrival_time):null;}).filter(Boolean).sort();
+  var rid=(tr.filter(function(t){return t.trip_id===tid;})[0]||{}).route_id;
+  var rr=ro.filter(function(r){return r.route_id===rid;})[0]||{};
+  var tm={};tids.forEach(function(t){var a=stm.filter(function(r){return r.trip_id===t;}).sort(function(a,b){return+a.stop_sequence-+b.stop_sequence;});if(a[0])tm[t]=a[0].departure_time||a[0].arrival_time;});
+  // 停留所の到着時刻インデックス（この停留所に到着する時刻）
+  var stopIdx=sl.findIndex(function(x){return x.id===sid;});
+  var arrivalTimes=tids.slice(0,80).map(function(t){
+    var row=stm.filter(function(r){return r.trip_id===t&&r.stop_id===sid;})[0];
+    return row?(row.arrival_time||row.departure_time):null;
+  }).filter(Boolean).sort();
+  return{name:rr.route_long_name||rr.route_short_name||"路線",stops:sl,schedules:sc,arrivalTimes:arrivalTimes,iv:3,tm:tm,stopIdx:stopIdx};
 }
-}
-//
-// 時刻表データ（平日・土日祝別）を構築時刻表データ（平日・土日祝別）を構築
+
+// 時刻表データ（平日・土日祝別）を構築
 function buildTimetable(f,sid){
-function buildTimetable(f,sid){
-var stm=csv(f["stop_times.txt"]),tr=csv(f["trips.txt"]);var stm=csv(f["stop_times.txt"]),tr=csv(f["trips.txt"]);
-var cal=f["calendar.txt"]||"";var cal=f["calendar.txt"]||"";
-var byDayType=getServiceIdsByDayType(cal);var byDayType=getServiceIdsByDayType(cal);
-var result={weekday:[],holiday:[]};var result={weekday:[],holiday:[]};
-["weekday","holiday"].forEach(function(dt){["weekday","holiday"].forEach(function(dt){
-var sids=byDayType[dt];var sids=byDayType[dt];
-var validTripIds=new Set();var validTripIds=new Set();
-tr.forEach(function(t){if(sids.has(t.service_id))validTripIds.atr.forEach(function(t){if(sids.has(t.service_id))validTripIds.add(t.trip_id);});dd(t.trip_id);});
-var times=[];var times=[];
-stm.forEach(function(r){stm.forEach(function(r){
-if(r.stop_id===sid&&validTripIds.has(r.trip_id)){if(r.stop_id===sid&&validTripIds.has(r.trip_id)){
-var t=r.arrival_time||r.departure_time;var t=r.arrival_time||r.departure_time;
-if(t)times.push(t);if(t)times.push(t);
-}}
-});});
-result[dt]=times.sort();result[dt]=times.sort();
-});});
-returnreturn result;result;
+  var stm=csv(f["stop_times.txt"]),tr=csv(f["trips.txt"]);
+  var cal=f["calendar.txt"]||"";
+  var byDayType=getServiceIdsByDayType(cal);
+  var result={weekday:[],holiday:[]};
+  ["weekday","holiday"].forEach(function(dt){
+    var sids=byDayType[dt];
+    var validTripIds=new Set();
+    tr.forEach(function(t){if(sids.has(t.service_id))validTripIds.add(t.trip_id);});
+    var times=[];
+    stm.forEach(function(r){
+      if(r.stop_id===sid&&validTripIds.has(r.trip_id)){
+        var t=r.arrival_time||r.departure_time;
+        if(t)times.push(t);
+      }
+    });
+    result[dt]=times.sort();
+  });
+  return result;
 }
-}
+
 function buildStopsWithDest(f){
-function buildStopsWithDest(f){
-var var stops=csv(f["stops.txt"]||""),trips=csv(f["trips.txt"]||""),st=csv(f["stop_times.txt"]||"");stops=csv(f["stops.txt"]||""),trips=csv(f["trips.txt"]||""),st=csv(f["stop_times.txt"]||"");
-var hs={};trips.forEach(function(t){if(t.trip_headsign)hs[t.trip_id]=t.trip_headsign;});var hs={};trips.forEach(function(t){if(t.trip_headsign)hs[t.trip_id]=t.trip_headsign;});
-var dests={};var dests={};
-st.fst.forEach(function(r){if(!dests[r.stop_id])dests[r.stop_id]=new Set();var orEach(function(r){if(!dests[r.stop_id])dests[r.stop_id]=new Set();var h=hs[r.trip_id];if(h)dests[r.stop_id].add(h);});h=hs[r.trip_id];if(h)dests[r.stop_id].add(h);});
-var out={};var out={};
-stops.forEach(function(s){out[s.stop_id]={name:s.stop_name,dests:dests[s.stop_id]?Arrastops.forEach(function(s){out[s.stop_id]={name:s.stop_name,dests:dests[s.stop_id]?Array.from(dests[s.stop_id]).slice(0,2y.from(dests[s.stop_id]).slice(0,2):[]};});):[]};});
-return out;return out;
+  var stops=csv(f["stops.txt"]||""),trips=csv(f["trips.txt"]||""),st=csv(f["stop_times.txt"]||"");
+  var hs={};trips.forEach(function(t){if(t.trip_headsign)hs[t.trip_id]=t.trip_headsign;});
+  var dests={};
+  st.forEach(function(r){if(!dests[r.stop_id])dests[r.stop_id]=new Set();var h=hs[r.trip_id];if(h)dests[r.stop_id].add(h);});
+  var out={};
+  stops.forEach(function(s){out[s.stop_id]={name:s.stop_name,dests:dests[s.stop_id]?Array.from(dests[s.stop_id]).slice(0,2):[]};});
+  return out;
 }
-}
+
 function ct(dep,n,iv){var b=pt(dep),a=[];for(var i=0;i<n;i++)a.push(b+i*iv);return a;}
-function ct(dep,n,iv){var b=pt(dep),a=[];for(var i=0;i<n;i++)a.push(b+i*iv);return a;}
-function gp(times,now){for(var i=0;i<times.length;i++){if(now<times[i]){var
-function gp(times,now){for(var i=0;i<times.length;i++){if(now<times[i]){var p=i===0?0:(nowp=i===0?0:(now--times[itimes[i--1])/(times[i]1])/(times[i]--times[itimes[i--1]);return Math.max(0,i1]);return Math.max(0,i--1+Math.min(1,p));}}return times.length1+Math.min(1,p));}}return times.length--1;}1;}
+function gp(times,now){for(var i=0;i<times.length;i++){if(now<times[i]){var p=i===0?0:(now-times[i-1])/(times[i]-times[i-1]);return Math.max(0,i-1+Math.min(1,p));}}return times.length-1;}
+
 function getNextBusInfo(){
-function getNextBusInfo(){
-if(!S.route||!S.route.arrivalTimes||!Sif(!S.route||!S.route.arrivalTimes||!S.route.arrivalTimes.length)return null;.route.arrivalTimes.length)return null;
-var now=S.now;var now=S.now;
-var times=S.route.arrivalTimes;var times=S.route.arrivalTimes;
-// // 今日の次の便今日の次の便
-for(var i=0;i<times.length;i++){for(var i=0;i<times.length;i++){
-var t=pt(times[i]);var t=pt(times[i]);
-if(t>now)return{time:t,timeStr:times[i],isToday:true,mtt:tif(t>now)return{time:t,timeStr:times[i],isToday:true,mtt:t--now};now};
-}}
-// // 翌日の始発翌日の始発
-return{treturn{time:pt(times[0])+24*60,timeStr:times[0],isToday:false,mtt:pt(times[0])+24*60ime:pt(times[0])+24*60,timeStr:times[0],isToday:false,mtt:pt(times[0])+24*60--now};now};
+  if(!S.route||!S.route.arrivalTimes||!S.route.arrivalTimes.length)return null;
+  var now=S.now;
+  var times=S.route.arrivalTimes;
+  // 今日の次の便
+  for(var i=0;i<times.length;i++){
+    var t=pt(times[i]);
+    if(t>now)return{time:t,timeStr:times[i],isToday:true,mtt:t-now};
+  }
+  // 翌日の始発
+  return{time:pt(times[0])+24*60,timeStr:times[0],isToday:false,mtt:pt(times[0])+24*60-now};
 }
-}
+
 function gb(){
-function gb(){
-if(!S.route)return[];if(!S.route)return[];
-var iv=S.route.iv||3.5,now=S.now;var iv=S.route.iv||3.5,now=S.now;
-if(S.rid&&S.rv.length>0&&S.route.tm){if(S.rid&&S.rv.length>0&&S.route.tm){
-var rb=[];var rb=[];
-S.rv.forEach(function(v){S.rv.forEach(function(v){
-if(!if(!v.tripId||!S.route.tm[v.tripId])return;v.tripId||!S.route.tm[v.tripId])return;
-var dep=S.route.tm[v.tripId],dl=(S.rd[v.tripId]||0)/60;var dep=S.route.tm[v.tripId],dl=(S.rd[v.tripId]||0)/60;
-var times=ct(dep,S.route.stops.length,iv).map(function(t){return t+dl;});var times=ct(dep,S.route.stops.length,iv).map(function(t){return t+dl;});
-var mtt=times[S.ti]var mtt=times[S.ti]--now;now;
-if(mtt<if(mtt<--5||mtt>120)return;5||mtt>120)return;
-rb.prb.push({id:"rush({id:"r--"+v.tripId,times:times,pos:gp(times,now),mtt:mtt,dl:dl,rt:true});"+v.tripId,times:times,pos:gp(times,now),mtt:mtt,dl:dl,rt:true});
-});});
-if(rb.length){rb.sort(function(a,b){return a.mttif(rb.length){rb.sort(function(a,b){return a.mtt--b.mtt;});return rb;}b.mtt;});return rb;}
-}}
-return S.route.schedules.map(function(dep,i){return S.route.schedules.map(function(dep,i){
-var times=ct(dep,S.route.stops.length,iv);var times=ct(dep,S.route.stops.length,iv);
-return{id:"b"+i,times:times,pos:gp(times,now),mtt:times[S.ti]return{id:"b"+i,times:times,pos:gp(times,now),mtt:times[S.ti]--now,dm:pt(dep),dl:0,rt:false};now,dm:pt(dep),dl:0,rt:false};
-}).filter(function(b){return now>=(b.dm||0)&&b.times[S.ti]>=now}).filter(function(b){return now>=(b.dm||0)&&b.times[S.ti]>=now--1;});1;});
+  if(!S.route)return[];
+  var iv=S.route.iv||3.5,now=S.now;
+  if(S.rid&&S.rv.length>0&&S.route.tm){
+    var rb=[];
+    S.rv.forEach(function(v){
+      if(!v.tripId||!S.route.tm[v.tripId])return;
+      var dep=S.route.tm[v.tripId],dl=(S.rd[v.tripId]||0)/60;
+      var times=ct(dep,S.route.stops.length,iv).map(function(t){return t+dl;});
+      var mtt=times[S.ti]-now;
+      if(mtt<-5||mtt>120)return;
+      rb.push({id:"r-"+v.tripId,times:times,pos:gp(times,now),mtt:mtt,dl:dl,rt:true});
+    });
+    if(rb.length){rb.sort(function(a,b){return a.mtt-b.mtt;});return rb;}
+  }
+  return S.route.schedules.map(function(dep,i){
+    var times=ct(dep,S.route.stops.length,iv);
+    return{id:"b"+i,times:times,pos:gp(times,now),mtt:times[S.ti]-now,dm:pt(dep),dl:0,rt:false};
+  }).filter(function(b){return now>=(b.dm||0)&&b.times[S.ti]>=now-1;});
 }
-}
+
 var rtt=null;
-var rtt=null;
-function srt(){if(rtt)c
-function srt(){if(rtt)clearInterval(rtt);drt();rtt=setInterval(drt,30000);}learInterval(rtt);drt();rtt=setInterval(drt,30000);}
+function srt(){if(rtt)clearInterval(rtt);drt();rtt=setInterval(drt,30000);}
 function drt(){
-function drt(){
-if(!S.rid)return;if(!S.rid)return;
-fetch(W+"/?action=realtime&id="+S.rid).then(function(r){return fetch(W+"/?action=realtime&id="+S.rid).then(function(r){return r.json();}).then(function(d){r.json();}).then(function(d){
-if(!d.error){S.rv=d.vehicles||[];S.rd=d.delays||{};S.re="";S.lu=Dateif(!d.error){S.rv=d.vehicles||[];S.rd=d.delays||{};S.re="";S.lu=Date.now();}.now();}
-else S.re=d.error;else S.re=d.error;
-cn();if(S.scr==="monitor")render();cn();if(S.scr==="monitor")render();
-}).catch(function(ex){S.re=ex.message;});}).catch(function(ex){S.re=ex.message;});
-}
+  if(!S.rid)return;
+  fetch(W+"/?action=realtime&id="+S.rid).then(function(r){return r.json();}).then(function(d){
+    if(!d.error){S.rv=d.vehicles||[];S.rd=d.delays||{};S.re="";S.lu=Date.now();}
+    else S.re=d.error;
+    cn();if(S.scr==="monitor")render();
+  }).catch(function(ex){S.re=ex.message;});
 }
 setInterval(function(){
-setInterval(function(){
-S.now=gn();S.theme=getTheme();S.dayType=getDayType();S.now=gn();S.theme=getTheme();S.dayType=getDayType();
-cn();if(S.scr==="monitor")render();cn();if(S.scr==="monitor")render();
+  S.now=gn();S.theme=getTheme();S.dayType=getDayType();
+  cn();if(S.scr==="monitor")render();
 },30000);
-},30000);
-function
-function cn(){cn(){
-if(S.scr!=="monitor"||!S.route)return;if(S.scr!=="monitor"||!S.route)return;
-gb().forEach(function(b){gb().forEach(function(b){
-if(S.nids.indexOf(b.id)>=0)return;if(S.nids.indexOf(b.id)>=0)return;
-var f=false,msg="";var f=false,msg="";
-if(S.nm==="stops"){var at=S.tiif(S.nm==="stops"){var at=S.ti--S.ns;if(at>=0&&b.pos>=at&&b.pos<at+1.2){f=true;msg="S.ns;if(at>=0&&b.pos>=at&&b.pos<at+1.2){f=true;msg="バスがバスが"+S.ns+""+S.ns+"つ前つ前
-「
-「"+(S.route.stops[at]?S.route.stops[at].name:"")+""+(S.route.stops[at]?S.route.stops[at].name:"")+"」に来ました！」に来ました！"+(b.dl>0.5?""+(b.dl>0.5?"（（"+Math.round(b.dl)+""+Math.round(b.dl)+"分遅れ）分遅れ）":"")+"":"")+"準備して準備して🏃";}}";}}
-else{if(b.mtt<=S.nm2&&b.mtt>0){f=true;melse{if(b.mtt<=S.nm2&&b.mtt>0){f=true;msg="sg="バスがあと約バスがあと約"+Math.ceil(b.mtt)+""+Math.ceil(b.mtt)+"分分で来ます！で来ます！"+(b.dl>0.5?""+(b.dl>0.5?"（（"+Math.round(b.dl)+""+Math.round(b.dl)+"分遅れ）分遅れ）":"")+"":"")+"準備して準備して🏃";}}";}}
-if(f){S.nids.push(b.id);S.ban=msg;if(window.Notification&&Notification.permission==="if(f){S.nids.push(b.id);S.ban=msg;if(window.Notification&&Notification.permission==="granted")new Notification("granted")new Notification("🚌",{body:msg});render();}",{body:msg});render();}
-});});
+
+function cn(){
+  if(S.scr!=="monitor"||!S.route)return;
+  gb().forEach(function(b){
+    if(S.nids.indexOf(b.id)>=0)return;
+    var f=false,msg="";
+    if(S.nm==="stops"){var at=S.ti-S.ns;if(at>=0&&b.pos>=at&&b.pos<at+1.2){f=true;msg="バスが"+S.ns+"つ前「"+(S.route.stops[at]?S.route.stops[at].name:"")+"」に来ました！"+(b.dl>0.5?"（"+Math.round(b.dl)+"分遅れ）":"")+"準備して🏃";}}
+    else{if(b.mtt<=S.nm2&&b.mtt>0){f=true;msg="バスがあと約"+Math.ceil(b.mtt)+"分で来ます！"+(b.dl>0.5?"（"+Math.round(b.dl)+"分遅れ）":"")+"準備して🏃";}}
+    if(f){S.nids.push(b.id);S.ban=msg;if(window.Notification&&Notification.permission==="granted")new Notification("🚌",{body:msg});render();}
+  });
 }
+
+function hs2(){
+  if(!S.sq.trim())return;
+  S.le="";S.sr=[];S.lm="検索中…";render();
+  fetch(W+"/?action=search&q="+encodeURIComponent(S.sq)).then(function(r){return r.json();}).then(function(d){
+    if(d.error)throw new Error(d.error);
+    S.sr=d.results||[];S.lm=S.sr.length?"":"見つかりませんでした";render();
+  }).catch(function(ex){S.le=ex.message;S.lm="";render();});
 }
-function hs2
-function hs2(){(){
-if(!S.sq.trim())return;if(!S.sq.trim())return;
-S.le="";S.sr=[];S.lm="S.le="";S.sr=[];S.lm="検索中…検索中…";render();";render();
-fetch(W+"/?action=search&q="+encodeURIComponent(S.sq)).then(function(r){return fetch(W+"/?action=search&q="+encodeURIComponent(S.sq)).then(function(r){return r.json();}).then(function(d){r.json();}).then(function(d){
-if(d.error)throw new Error(d.error);if(d.error)throw new Error(d.error);
-S.sr=d.results||[];S.lm=S.sr.lS.sr=d.results||[];S.lm=S.sr.length?"":"ength?"":"見つかりませんでした見つかりませんでした";render();";render();
-}).catch(function(ex){S.le=ex.message;S.lm="";render();});}).catch(function(ex){S.le=ex.message;S.lm="";render();});
-}
-}
+
 function selectCompany(i){
-function selectCompany(i){
-var co=S.sr[i];var co=S.sr[i];
-S.le="";S.sr=[];S.scr="loading";S.lm="S.le="";S.sr=[];S.scr="loading";S.lm="時刻表を探しています…時刻表を探しています…";render();";render();
-var p;var p;
-if(co.source==="known"){if(co.source==="known"){
-p=fetch(W+"/p=fetch(W+"/?action=find_zip&id="+co.id).then(function(r){return ?action=find_zip&id="+co.id).then(function(r){return r.json();}).then(function(d){r.json();}).then(function(d){
-if(d.error)throw new Error(d.error);if(d.error)throw new Error(d.error);
-S.rid=d.hasRealtime?co.id:null;S.hasRT=!!d.hasRealtime;S.rid=d.hasRealtime?co.id:null;S.hasRT=!!d.hasRealtime;
-return d.latestUrl;return d.latestUrl;
-});});
-}else{S.rid=null;S.hasRT=false;p}else{S.rid=null;S.hasRT=false;p=Promise.resolve(co.gtfsUrl);}=Promise.resolve(co.gtfsUrl);}
-p.then(function(u){p.then(function(u){
-if(!u)throw new Error("URLif(!u)throw new Error("URLなしなし");S.gurl=u;S.lm="");S.gurl=u;S.lm="停留所を読み込み中…停留所を読み込み中…";render();";render();
-return fetch(W+"/?action=fetch_stops&url="+encodeURIComponent(u));return fetch(W+"/?action=fetch_stops&url="+encodeURIComponent(u));
-}).then(function(r){return r.json();}).then(function(d){}).then(function(r){return r.json();}).then(function(d){
-if(d.error)throw new Error(d.error);if(d.error)throw new Error(d.error);
-S.cachedFiles=d.files;S.cachedFiles=d.files;
-S.stops=csv(d.files["stops.txt"]);S.stops=csv(d.files["stops.txt"]);
-if(d.files["trips.txt"]&&d.files["stop_times.txt"])S.stopsWithDest=buildStopsWithDest(dif(d.files["trips.txt"]&&d.files["stop_times.txt"])S.stopsWithDest=buildStopsWithDest(d.files);.files);
-else S.stopsWithDest={};else S.stopsWithDest={};
-S.sf="";S.lm="";S.sf="";S.lm="";S.scr="stop_select";render();S.scr="stop_select";render();
-}).catch(function(ex){S.le=ex.message;S.lm="";S.scr="welcome";render();});}).catch(function(ex){S.le=ex.message;S.lm="";S.scr="welcome";render();});
+  var co=S.sr[i];
+  S.le="";S.sr=[];S.scr="loading";S.lm="時刻表を探しています…";render();
+  var p;
+  if(co.source==="known"){
+    p=fetch(W+"/?action=find_zip&id="+co.id).then(function(r){return r.json();}).then(function(d){
+      if(d.error)throw new Error(d.error);
+      S.rid=d.hasRealtime?co.id:null;S.hasRT=!!d.hasRealtime;
+      return d.latestUrl;
+    });
+  }else{S.rid=null;S.hasRT=false;p=Promise.resolve(co.gtfsUrl);}
+  p.then(function(u){
+    if(!u)throw new Error("URLなし");S.gurl=u;S.lm="停留所を読み込み中…";render();
+    return fetch(W+"/?action=fetch_stops&url="+encodeURIComponent(u));
+  }).then(function(r){return r.json();}).then(function(d){
+    if(d.error)throw new Error(d.error);
+    S.cachedFiles=d.files;
+    S.stops=csv(d.files["stops.txt"]);
+    if(d.files["trips.txt"]&&d.files["stop_times.txt"])S.stopsWithDest=buildStopsWithDest(d.files);
+    else S.stopsWithDest={};
+    S.sf="";S.lm="";S.scr="stop_select";render();
+  }).catch(function(ex){S.le=ex.message;S.lm="";S.scr="welcome";render();});
 }
-}
+
 function selectStop(sid){
-function selectStop(sid){
-S.scr="loading";S.lm="S.scr="loading";S.lm="時刻表を読み込み中…時刻表を読み込み中…";render();";render();
-fetch(W+"/?action=fetch_route&url="+encodeURIComponent(S.gurl)+"&stop_idfetch(W+"/?action=fetch_route&url="+encodeURIComponent(S.gurl)+"&stop_id="+enco="+encodeURIComponent(sid))deURIComponent(sid))
-.then(function(r){return r.json();}).then(function(d){.then(function(r){return r.json();}).then(function(d){
-if(d.error)throw new Error(d.error);if(d.error)throw new Error(d.error);
-// // 今日の曜日に合った今日の曜日に合ったservice_idservice_idを取得を取得
-var var serviceIds=getTodayServiceIds(d.files["calendar.txt"],d.files["calendar_dates.txt"]);serviceIds=getTodayServiceIds(d.files["calendar.txt"],d.files["calendar_dates.txt"]);
-//// serviceIdsserviceIdsが空なら全便使用が空なら全便使用
-if(serviceIds.size===0)serviceIds=null;if(serviceIds.size===0)serviceIds=null;
-var res=buildRoute(d.files,sid,serviceIds);var res=buildRoute(d.files,sid,serviceIds);
-if(!res){if(!res){
-// // 今日の便がない場合は全便で試す今日の便がない場合は全便で試す
-res=buildRoute(d.files,sid,null);res=buildRoute(d.files,sid,null);
-if(!res)throw new Error("if(!res)throw new Error("便が見つかりません便が見つかりません");");
-}}
-// // 時刻表データを構時刻表データを構築築
-var timetable=buildTimetable(d.files,sid);var timetable=buildTimetable(d.files,sid);
-if(d.files["trips.txt"]&&d.files["stop_times.txt"])S.stopsWithDest=buildStopsWithDest(dif(d.files["trips.txt"]&&d.files["stop_times.txt"])S.stopsWithDest=buildStopsWithDest(d.files);.files);
-S.cachedFiles=d.files;S.cachedFiles=d.files;
-var ns2=res.stops.map(function(x){return{id:x.id,name:x.name};});var ns2=res.stops.map(function(x){return{id:x.id,name:x.name};});
-var ni=0;for(var i=0;i<res.stops.length;i++){if(res.stops[i].id===sid){ni=i;break;}}var ni=0;for(var i=0;i<res.stops.length;i++){if(res.stops[i].id===sid){ni=i;break;}}
-var var nr={name:res.name,stops:ns2,schedules:res.schedules,arrivalTimes:res.arrivalTimes,iv:nr={name:res.name,stops:ns2,schedules:res.schedules,arrivalTimes:res.arrivalTimes,iv:3,tm:res.tm,stopId:sid,timetable:timetable};3,tm:res.tm,stopId:sid,timetable:timetable};
-sv({route:nr,ti:ni,gurl:Ssv({route:nr,ti:ni,gurl:S.gurl,rid:S.rid,hasRT:S.hasRT,nm:S.nm,ns:S.ns,nm2:S.nm2});.gurl,rid:S.rid,hasRT:S.hasRT,nm:S.nm,ns:S.ns,nm2:S.nm2});
-S.route=nr;S.ti=ni;S.nids=[];S.scr="monitor";S.route=nr;S.ti=ni;S.nids=[];S.scr="monitor";
-if(S.rid)srt();render();if(S.rid)srt();render();
-}).catch(function(ex){S.le=ex.message;S.scr="stop_select";render();});}).catch(function(ex){S.le=ex.message;S.scr="stop_select";render();});
+  S.scr="loading";S.lm="時刻表を読み込み中…";render();
+  fetch(W+"/?action=fetch_route&url="+encodeURIComponent(S.gurl)+"&stop_id="+encodeURIComponent(sid))
+  .then(function(r){return r.json();}).then(function(d){
+    if(d.error)throw new Error(d.error);
+    // 今日の曜日に合ったservice_idを取得
+    var serviceIds=getTodayServiceIds(d.files["calendar.txt"],d.files["calendar_dates.txt"]);
+    // serviceIdsが空なら全便使用
+    if(serviceIds.size===0)serviceIds=null;
+    var res=buildRoute(d.files,sid,serviceIds);
+    if(!res){
+      // 今日の便がない場合は全便で試す
+      res=buildRoute(d.files,sid,null);
+      if(!res)throw new Error("便が見つかりません");
+    }
+    // 時刻表データを構築
+    var timetable=buildTimetable(d.files,sid);
+    if(d.files["trips.txt"]&&d.files["stop_times.txt"])S.stopsWithDest=buildStopsWithDest(d.files);
+    S.cachedFiles=d.files;
+    var ns2=res.stops.map(function(x){return{id:x.id,name:x.name};});
+    var ni=0;for(var i=0;i<res.stops.length;i++){if(res.stops[i].id===sid){ni=i;break;}}
+    var nr={name:res.name,stops:ns2,schedules:res.schedules,arrivalTimes:res.arrivalTimes,iv:3,tm:res.tm,stopId:sid,timetable:timetable};
+    sv({route:nr,ti:ni,gurl:S.gurl,rid:S.rid,hasRT:S.hasRT,nm:S.nm,ns:S.ns,nm2:S.nm2});
+    S.route=nr;S.ti=ni;S.nids=[];S.scr="monitor";
+    if(S.rid)srt();render();
+  }).catch(function(ex){S.le=ex.message;S.scr="stop_select";render();});
 }
-}
+
 function am(){
-function am(){
-var stops=S.ms.split("var stops=S.ms.split("¥¥n"n").map(function(x){return ).map(function(x){return x.trim();}).filter(Boolean).map(function(n,i){return{id:"m"+i,name:n};});x.trim();}).filter(Boolean).map(function(n,i){return{id:"m"+i,name:n};});
-var sc2=S.mt.split("var sc2=S.mt.split("¥¥n").map(function(x){return n").map(function(x){return x.trim();}).filter(function(x){return/^x.trim();}).filter(function(x){return/^¥¥d{1,2}:d{1,2}:¥¥d{2}$/.test(x);});d{2}$/.test(x);});
-if(stops.length<2){alert("if(stops.length<2){alert("停留所を停留所を22つ以上つ以上");r");return;}if(!sc2.length){alert("eturn;}if(!sc2.length){alert("時刻表を入力時刻表を入力してくださいしてください");return;}");return;}
-var nr={name:S.mn||"var nr={name:S.mn||"手動入力路線手動入力路線",stops:stops,schedules:sc2,arrivalTimes:sc2,iv:parseFloat(S.mi)||3};",stops:stops,schedules:sc2,arrivalTimes:sc2,iv:parseFloat(S.mi)||3};
-sv({route:nr,ti:stops.lengthsv({route:nr,ti:stops.length--1,nm:S.nm,ns:S.ns,nm2:S.nm2});1,nm:S.nm,ns:S.ns,nm2:S.nm2});
-S.route=nr;S.ti=stops.lengthS.route=nr;S.ti=stops.length--1;S.nids=[]1;S.nids=[];S.rid=null;S.hasRT=false;S.scr="monitor";render();;S.rid=null;S.hasRT=false;S.scr="monitor";render();
+  var stops=S.ms.split("\n").map(function(x){return x.trim();}).filter(Boolean).map(function(n,i){return{id:"m"+i,name:n};});
+  var sc2=S.mt.split("\n").map(function(x){return x.trim();}).filter(function(x){return/^\d{1,2}:\d{2}$/.test(x);});
+  if(stops.length<2){alert("停留所を2つ以上");return;}if(!sc2.length){alert("時刻表を入力してください");return;}
+  var nr={name:S.mn||"手動入力路線",stops:stops,schedules:sc2,arrivalTimes:sc2,iv:parseFloat(S.mi)||3};
+  sv({route:nr,ti:stops.length-1,nm:S.nm,ns:S.ns,nm2:S.nm2});
+  S.route=nr;S.ti=stops.length-1;S.nids=[];S.rid=null;S.hasRT=false;S.scr="monitor";render();
 }
-}
+
 function rsl(){
-function rsl(){
-var el=document.getElementById("sl");if(!el)return;var el=document.getElementById("sl");if(!el)return;
-var T=TH[S.theme];var T=TH[S.theme];
-var f=S.sf;var f=S.sf;
-var var sh=(f?S.stops.filter(function(x){return(x.stop_name&&x.stop_name.indexOf(f)>=0)||(x.sh=(f?S.stops.filter(function(x){return(x.stop_name&&x.stop_name.indexOf(f)>=0)||(x.stop_istop_id&&x.stop_id.indexOf(f)>=0);}):S.stops).slice(0,200);d&&x.stop_id.indexOf(f)>=0);}):S.stops).slice(0,200);
-var h='<div style="background:'+T.card+';bordervar h='<div style="background:'+T.card+';border--radius:14px;border:1px solid radius:14px;border:1px solid '+T.border+';overflow:hidden">';'+T.border+';overflow:hidden">';
-if(!sh.length)h+='<div style="padding:16px;textif(!sh.length)h+='<div style="padding:16px;text--align:center;color:'+T.sub+'">align:center;color:'+T.sub+'">該当なし該当なし</div></div>';';
-sh.forEach(function(x,i){sh.forEach(function(x,i){
-var di=S.stopsWithDest[x.stop_id];var di=S.stopsWithDest[x.stop_id];
-var ds=di&&di.dests&&di.dests.length?'<div style="fontvar ds=di&&di.dests&&di.dests.length?'<div style="font--size:11px;color:'+T.acc+';marginsize:11px;color:'+T.acc+';margin--top:2px">top:2px">→→ '+e(di.dests.join(" / "))+''+e(di.dests.join(" / "))+'行き行き</div>':"";</div>':"";
-h+='<div onclick="selectStop(h+='<div onclick="selectStop(¥¥''+e(x.s''+e(x.stop_id)+'top_id)+'¥¥')" style="padding:12px ')" style="padding:12px 14px;border14px;border--bottom:'+(i<sh.lengthbottom:'+(i<sh.length--1?"1px solid 1?"1px solid "+T.border:"none")+';cursor:pointer;display:flex;align"+T.border:"none")+';cursor:pointer;display:flex;align--items:center;gap:10px">'items:center;gap:10px">'
-+'<div style="font+'<div style="font--size:16px">size:16px">🚏</div>'</div>'
-+'<div style="flex:1"><div style="font+'<div style="flex:1"><div style="font--size:14px;color:'+T.text+'">'+e(x.stop_name)+'</div>'+dssize:14px;color:'+T.text+'">'+e(x.stop_name)+'</div>'+ds
-+'<div style="font+'<div style="font--size:10px;color:'+T.sub+';marginsize:10px;color:'+T.sub+';margin--top:1px">'+e(x.stop_id)+'</div></div>'top:1px">'+e(x.stop_id)+'</div></div>'
-+'<div style="color:'+T.sub+'">›</div></div>';+'<div style="color:'+T.sub+'">›</div></div>';
-});});
-h+h+='</div><div style="font='</div><div style="font--size:11px;color:'+T.sub+';textsize:11px;color:'+T.sub+';text--align:center;marginalign:center;margin--top:6px">'+(sh.length<200?sh.length+"top:6px">'+(sh.length<200?sh.length+"件件":"":"上位上位200200件件")+'</div>';")+'</div>';
-el.innerHTML=h;el.innerHTML=h;
+  var el=document.getElementById("sl");if(!el)return;
+  var T=TH[S.theme];
+  var f=S.sf;
+  var sh=(f?S.stops.filter(function(x){return(x.stop_name&&x.stop_name.indexOf(f)>=0)||(x.stop_id&&x.stop_id.indexOf(f)>=0);}):S.stops).slice(0,200);
+  var h='<div style="background:'+T.card+';border-radius:14px;border:1px solid '+T.border+';overflow:hidden">';
+  if(!sh.length)h+='<div style="padding:16px;text-align:center;color:'+T.sub+'">該当なし</div>';
+  sh.forEach(function(x,i){
+    var di=S.stopsWithDest[x.stop_id];
+    var ds=di&&di.dests&&di.dests.length?'<div style="font-size:11px;color:'+T.acc+';margin-top:2px">→ '+e(di.dests.join(" / "))+'行き</div>':"";
+    h+='<div onclick="selectStop(\''+e(x.stop_id)+'\')" style="padding:12px 14px;border-bottom:'+(i<sh.length-1?"1px solid "+T.border:"none")+';cursor:pointer;display:flex;align-items:center;gap:10px">'
+    +'<div style="font-size:16px">🚏</div>'
+    +'<div style="flex:1"><div style="font-size:14px;color:'+T.text+'">'+e(x.stop_name)+'</div>'+ds
+    +'<div style="font-size:10px;color:'+T.sub+';margin-top:1px">'+e(x.stop_id)+'</div></div>'
+    +'<div style="color:'+T.sub+'">›</div></div>';
+  });
+  h+='</div><div style="font-size:11px;color:'+T.sub+';text-align:center;margin-top:6px">'+(sh.length<200?sh.length+"件":"上位200件")+'</div>';
+  el.innerHTML=h;
 }
-}
-function
-function goChangeCompany(){S.scr="welcome";S.sq="";S.sr=[];S.lm="";S.le="";S.ss=false;S.showgoChangeCompany(){S.scr="welcome";S.sq="";S.sr=[];S.lm="";S.le="";S.ss=false;S.showTimetabTimetable=false;if(rtt)clearInterval(rtt);render();}le=false;if(rtt)clearInterval(rtt);render();}
-function
-function goChangeStop(){if(!S.gurl){goChangeCompany();return;}S.scr="stop_select";S.sf="";S.ssgoChangeStop(){if(!S.gurl){goChangeCompany();return;}S.scr="stop_select";S.sf="";S.ss=false;S.showTimetable=false;render();}=false;S.showTimetable=false;render();}
+
+function goChangeCompany(){S.scr="welcome";S.sq="";S.sr=[];S.lm="";S.le="";S.ss=false;S.showTimetable=false;if(rtt)clearInterval(rtt);render();}
+function goChangeStop(){if(!S.gurl){goChangeCompany();return;}S.scr="stop_select";S.sf="";S.ss=false;S.showTimetable=false;render();}
+
 function renderTimetable(T){
-function renderTimetable(T){
-if(!S.route||!S.route.timetable)return'<div if(!S.route||!S.route.timetable)return'<div style="color:'+T.sub+';fontstyle="color:'+T.sub+';font--size:13px;textsize:13px;text--align:center;padding:16px">align:center;padding:16px">時刻表データなし時刻表データなし</div>';</div>';
-var dt=S.timetableDayType;var dt=S.timetableDayType;
-var times=S.route.timetable[dt]||[];var times=S.route.timetable[dt]||[];
-// // 時間帯ごとにグループ化時間帯ごとにグループ化
-var groups={};var groups={};
-times.forEach(function(t){times.forEach(function(t){
-var h=t.split(":")[0];var h=t.split(":")[0];
-if(!groif(!groups[h])groups[h]=[];ups[h])groups[h]=[];
-groups[h].push(t.split(":")[1]);groups[h].push(t.split(":")[1]);
-});});
-var html='<div style="background:'+T.card+';bordervar html='<div style="background:'+T.card+';border--radius:14px;border:1px solid radius:14px;border:1px solid '+T.border+';padding:14px;margin'+T.border+';padding:14px;margin--bottom:14px">'bottom:14px">'
-+'<div style="display:flex;gap:6px;margin+'<div style="display:flex;gap:6px;margin--bottom:12px">'bottom:12px">'
-++'<button onclick="S.timetableDayType='<button onclick="S.timetableDayType=¥¥'weekday'weekday¥¥';render()" class="btn" ';render()" class="btn" style="flex:1;padding:7px;background:'+(dt==="weekday"?T.acc:"none")+';color:'+(dt===style="flex:1;padding:7px;background:'+(dt==="weekday"?T.acc:"none")+';color:'+(dt==="weekday"?"white":T.sub)+';border:1px solid '+(dt==="weekday"?T.acc:T.border)+';font"weekday"?"white":T.sub)+';border:1px solid '+(dt==="weekday"?T.acc:T.border)+';font--size:13px">size:13px">平日平日</</button>'button>'
-+'<button onclick="S.timetableDayType=+'<button onclick="S.timetableDayType=¥¥'holiday'holiday¥¥';render()" class="btn" ';render()" class="btn" style="flex:1;padding:7px;background:'+(dt==="holiday"?T.acc:"none")+';color:'+(dt==="style="flex:1;padding:7px;background:'+(dt==="holiday"?T.acc:"none")+';color:'+(dt==="holiday"?"white":T.sub)+';border:1px solid '+(dt==="holiday"?T.acc:T.border)+';fontholiday"?"white":T.sub)+';border:1px solid '+(dt==="holiday"?T.acc:T.border)+';font--sizsize:13px">e:13px">土日祝土日祝</button>'</button>'
-+'</div>';+'</div>';
-if(!times.length){if(!times.length){
-html+='<div style="color:'+T.sub+';fonthtml+='<div style="color:'+T.sub+';font--size:13px;textsize:13px;text--align:center;padding:8px">align:center;padding:8px">ここの曜日の便はありませんの曜日の便はありません</div>';</div>';
-}else{}else{
-html+='<div style="fonthtml+='<div style="font--size:11px;color:'+T.sub+';marginsize:11px;color:'+T.sub+';margin--bottom:8px">'+S.route.stops[S.ti]?e(S.route.stops[S.ti].name):""+' bottom:8px">'+S.route.stops[S.ti]?e(S.route.stops[S.ti].name):""+' 到着時刻到着時刻</div>';</div>';
-html+='<table style="width:100%;borderhtml+='<table style="width:100%;border--collapse:collapse">';collapse:collapse">';
-Object.keys(groups).sort().forEach(function(h)Object.keys(groups).sort().forEach(function(h){{
-var mins=groups[h];var mins=groups[h];
-var isNowHour=Math.floor(S.now/60)===parseInt(h);var isNowHour=Math.floor(S.now/60)===parseInt(h);
-html+='<tr><td style="fonthtml+='<tr><td style="font--size:13px;fontsize:13px;font--weight:700;color:'+T.acc+';padding:4px weight:700;color:'+T.acc+';padding:4px 8px 4px 0;vertical8px 4px 0;vertical--align:top;whitealign:top;white--space:nowrap">'+h+'space:nowrap">'+h+'時時</td>'</td>'
-+'<td style="font+'<td style="font--size:13px;color:'+T.text+';padding:4px 0;linesize:13px;color:'+T.text+';padding:4px 0;line--height:1.8">';height:1.8">';
-mins.forEach(function(m){mins.forEach(function(m){
-var mNum=parseInt(m);var mNum=parseInt(m);
-var isPast=isNowHour&&mNum<Math.round(S.now%60);var isPast=isNowHour&&mNum<Math.round(S.now%60);
-html+='<span style="marginhtml+='<span style="margin--right:10px;color:'+(isPast?T.sub:T.text)right:10px;color:'+(isPast?T.sub:T.text)+';opacity:'+(isPast?"0.4":"1")+'">'+m+'</span>';+';opacity:'+(isPast?"0.4":"1")+'">'+m+'</span>';
-});});
-html+='</td></tr>';html+='</td></tr>';
-});});
-html+='</table>';html+='</table>';
-}}
-html+='</div>';html+='</div>';
-return html;return html;
+  if(!S.route||!S.route.timetable)return'<div style="color:'+T.sub+';font-size:13px;text-align:center;padding:16px">時刻表データなし</div>';
+  var dt=S.timetableDayType;
+  var times=S.route.timetable[dt]||[];
+  // 時間帯ごとにグループ化
+  var groups={};
+  times.forEach(function(t){
+    var h=t.split(":")[0];
+    if(!groups[h])groups[h]=[];
+    groups[h].push(t.split(":")[1]);
+  });
+  var html='<div style="background:'+T.card+';border-radius:14px;border:1px solid '+T.border+';padding:14px;margin-bottom:14px">'
+  +'<div style="display:flex;gap:6px;margin-bottom:12px">'
+  +'<button onclick="S.timetableDayType=\'weekday\';render()" class="btn" style="flex:1;padding:7px;background:'+(dt==="weekday"?T.acc:"none")+';color:'+(dt==="weekday"?"white":T.sub)+';border:1px solid '+(dt==="weekday"?T.acc:T.border)+';font-size:13px">平日</button>'
+  +'<button onclick="S.timetableDayType=\'holiday\';render()" class="btn" style="flex:1;padding:7px;background:'+(dt==="holiday"?T.acc:"none")+';color:'+(dt==="holiday"?"white":T.sub)+';border:1px solid '+(dt==="holiday"?T.acc:T.border)+';font-size:13px">土日祝</button>'
+  +'</div>';
+  if(!times.length){
+    html+='<div style="color:'+T.sub+';font-size:13px;text-align:center;padding:8px">この曜日の便はありません</div>';
+  }else{
+    html+='<div style="font-size:11px;color:'+T.sub+';margin-bottom:8px">'+S.route.stops[S.ti]?e(S.route.stops[S.ti].name):""+' 到着時刻</div>';
+    html+='<table style="width:100%;border-collapse:collapse">';
+    Object.keys(groups).sort().forEach(function(h){
+      var mins=groups[h];
+      var isNowHour=Math.floor(S.now/60)===parseInt(h);
+      html+='<tr><td style="font-size:13px;font-weight:700;color:'+T.acc+';padding:4px 8px 4px 0;vertical-align:top;white-space:nowrap">'+h+'時</td>'
+      +'<td style="font-size:13px;color:'+T.text+';padding:4px 0;line-height:1.8">';
+      mins.forEach(function(m){
+        var mNum=parseInt(m);
+        var isPast=isNowHour&&mNum<Math.round(S.now%60);
+        html+='<span style="margin-right:10px;color:'+(isPast?T.sub:T.text)+';opacity:'+(isPast?"0.4":"1")+'">'+m+'</span>';
+      });
+      html+='</td></tr>';
+    });
+    html+='</table>';
+  }
+  html+='</div>';
+  return html;
 }
-}
+
 function render(){
-function render(){
-var T=TH[S.theme];var T=TH[S.theme];
-document.body.style.background=T.bg;document.body.style.background=T.bg;
-document.body.styledocument.body.style.color=T.text;.color=T.text;
-var app=document.getElementById("app"),html="",buses=gb(),nx=null;var app=document.getElementById("app"),html="",buses=gb(),nx=null;
-for(var i=0;i<buses.length;i++){if(buses[i].mtt>0){nx=buses[i];break;}}for(var i=0;i<buses.length;i++){if(buses[i].mtt>0){nx=buses[i];break;}}
-var mins=nx?Math.ceil(nx.mtt):null,urg=mins!==null&&mins<=3;var mins=nx?Math.ceil(nx.mtt):null,urg=mins!==null&&mins<=3;
-var nai=S.nm==="stops"?Math.max(0,S.tivar nai=S.nm==="stops"?Math.max(0,S.ti--S.ns):null;S.ns):null;
-var nextInfo=getNextBusInfo();var nextInfo=getNextBusInfo();
-if(S.ban){if(S.ban){
-html+='<div style="position:fixed;top:12px;left:50%;transform:translateX(html+='<div style="position:fixed;top:12px;left:50%;transform:translateX(--50%);z50%);z--index:200;background:linearindex:200;background:linear--gradient(135deg,#0ea5e9,#6366f1);color:whitgradient(135deg,#0ea5e9,#6366f1);color:white;padding:12px 16px;bordere;padding:12px 16px;border--radius:14px;boxradius:14px;box--shadow:0 8px 24px rgba(14,165,233,0.5);maxshadow:0 8px 24px rgba(14,165,233,0.5);max--width:90vw;display:flex;alignwidth:90vw;display:flex;align--items:center;gap:10px">'items:center;gap:10px">'
-+'<span>+'<span>🔔</span><span style="font</span><span style="font--size:13px;fontsize:13px;font--weight:600;flex:1">'+e(S.ban)+'</span>'weight:600;flex:1">'+e(S.ban)+'</span>'
-+'<button onclick+'<button onclick="S.ban=null;render()" ="S.ban=null;render()" style="background:rgba(255,255,255,0.2);border:none;color:white;borderstyle="background:rgba(255,255,255,0.2);border:none;color:white;border--radius:6px;padding:3px 8px;cursor:pointer">radius:6px;padding:3px 8px;cursor:pointer">✕✕</button></div>';</button></div>';
-}}
-if(S.scr==="loading"){if(S.scr==="loading"){
-app.innerHTML='<div style="minapp.innerHTML='<div style="min--height:100vh;display:flex;flexheight:100vh;display:flex;flex--diredirection:column;alignction:column;align--items:center;justifyitems:center;justify--content:center;textcontent:center;text--align:center">'align:center">'
-+'<div style="font+'<div style="font--size:48px;marginsize:48px;margin--bottom:16px">bottom:16px">🚌</div>'</div>'
-+'<div style="font+'<div style="font--size:14px;color:'+T.sub+';marginsize:14px;color:'+T.sub+';margin--bottom:14px">'+e(S.lm)+'</div>'bottom:14px">'+e(S.lm)+'</div>'
-+'<button onclick="S.scr=+'<button onclick="S.scr=¥¥'welcome'welcome¥¥';S.lm=';S.lm=¥¥''¥¥';S.le=';S.le=¥¥''¥¥';render()" class="btn" ';render()" class="btn" style="background:'+T.card+';padding:10px 18px;color:'+T.sub+';border:1px solid style="background:'+T.card+';padding:10px 18px;color:'+T.sub+';border:1px solid '+T.border+'">'+T.border+'">キャンセルキャンセル</button>'</button>'
-+'</div>';return;+'</div>';return;
-}}
-if(S.scr==="welcome"){if(S.scr==="welcome"){
-var h2='<div style="minvar h2='<div style="min--height:100vhheight:100vh;display:flex;flex;display:flex;flex--direction:column;aligndirection:column;align--items:center;justifyitems:center;justify--content:center;padding:20px">'content:center;padding:20px">'
-+'<div style="text+'<div style="text--align:center;marginalign:center;margin--bottom:24px">'bottom:24px">'
-+'<div style="font+'<div style="font--size:48px;marginsize:48px;margin--bottom:10px;animation:float 2.5s easebottom:10px;animation:float 2.5s ease--inin--out out infinite">infinite">🚌</div>'</div>'
-+'<div style="font+'<div style="font--size:20px;fontsize:20px;font--weight:800;marginweight:800;margin--bottom:6px;color:'+T.text+'">bottom:6px;color:'+T.text+'">ババス接近通知ス接近通知</div>'</div>'
-+'<div style="font+'<div style="font--size:13px;color:'+T.sub+';linesize:13px;color:'+T.sub+';line--height:1.8">height:1.8">バス会社名を入力するバス会社名を入力するだけでだけで<br><br>時刻表を自動取得します時刻表を自動取得します</div>'</div>'
-+'</div><div style="width:100%;max+'</div><div style="width:100%;max--width:380px">'width:380px">'
-+'<div style="display:flex;gap:8px;margin+'<div style="display:flex;gap:8px;margin--bottom:10px">'bottom:10px">'
-+'<input id="sq" type="text" style="flex:1;border+'<input id="sq" type="text" style="flex:1;border--radius:12px;padding:12px radius:12px;padding:12px 14px;font14px;font--size:15px;background:'+T.card+';border:1px solid size:15px;background:'+T.card+';border:1px solid '+T.border+';color:'+T.text+';font'+T.border+';color:'+T.text+';font--family:inherit;outlinefamily:inherit;outline:none" placeholder=":none" placeholder="バス会社名バス会社名（例：〇〇バス、△△交通）（例：〇〇バス、△△交通）" value="'+e(S.sq)+'">'" value="'+e(S.sq)+'">'
-+'<button onclick="S.sq=document.getElementById(+'<button onclick="S.sq=document.getElementById(¥¥'sq'sq¥¥').value;hs2()" class="btn" ').value;hs2()" class="btn" style="padding:12px 16px;background:'+T.acc+';color:white;fontstyle="padding:12px 16px;background:'+T.acc+';color:white;font--size:15px;flexsize:15px;flex--shrink:0">shrink:0">検索検索</button>'</button>'
-+'</+'</div>';div>';
-if(S.le)h2+='<div style="background:#450a0a;borderif(S.le)h2+='<div style="background:#450a0a;border--radius:10px;padding:10px radius:10px;padding:10px 14px;margin14px;margin--bottom:10px;fontbottom:10px;font--size:13px;color:#f87171">'+e(S.le)+'</div>';size:13px;color:#f87171">'+e(S.le)+'</div>';
-if(S.lm)h2+='<div style="textif(S.lm)h2+='<div style="text--align:center;color:'+T.sub+';fontalign:center;color:'+T.sub+';font--size:13px;marginsize:13px;margin--bottom:8px">'+e(S.lm)+'</div>';bottom:8px">'+e(S.lm)+'</div>';
-if(S.sr.length){if(S.sr.length){
-h2+='<div style="background:'+T.card+';borderh2+='<div style="background:'+T.card+';border--radius:14px;border:1px solid radius:14px;border:1px solid '+T.border+';overflow:hidden;margin'+T.border+';overflow:hidden;margin--bbottom:10px"><div style="fontottom:10px"><div style="font--size:11px;color:'+T.sub+';padding:8px 14px 4px">'+S.sr.length+'size:11px;color:'+T.sub+';padding:8px 14px 4px">'+S.sr.length+'件件</div>';</div>';
-S.sr.forEach(function(co,i){S.sr.forEach(function(co,i){
-h2+='<div onclick="selectCompany('+i+')" style="padding:12px 14px;borderh2+='<div onclick="selectCompany('+i+')" style="padding:12px 14px;border--top:1px solid '+T.border+';cursor:pointop:1px solid '+T.border+';cursor:pointer;display:flex;alignter;display:flex;align--items:center;gap:10px">'items:center;gap:10px">'
-+'<div style="font+'<div style="font--size:18px">size:18px">🚌</div><div style="flex:1">'</div><div style="flex:1">'
-+'<div style="font+'<div style="font--size:14px;fontsize:14px;font--
-weight:600;color:'+T.text+'">'+e(co.name)+'</div>'
-weight:600;color:'+T.text+'">'+e(co.name)+'</div>'
-+'<div style="font+'<div style="font--size:11px;marginsize:11px;margin--toptop:2px">'+(co.hasRealtime?'<span :2px">'+(co.hasRealtime?'<span style="color:#22c55e">style="color:#22c55e">●● リアルタイムリアルタイムGPSGPS対応対応</span>':'<span style="color:'+T.sub+'"></span>':'<span style="color:'+T.sub+'">○○ 時刻表ベース時刻表ベース</span>')+'</div>'</span>')+'</div>'
-+'</div><div style="color:'+T.sub+'">›</div></div>';+'</div><div style="color:'+T.sub+'">›</div></div>';
-});});
-h2+='</div>';h2+='</div>';
-}}
-h2+='<div style="texth2+='<div style="text--align:center"><button onclick="S.scr=align:center"><button onclick="S.scr=¥¥'manual'manual¥¥';render()" ';render()" style="background:none;border:none;color:'+T.sub+';fontstyle="background:none;border:none;color:'+T.sub+';font--size:13px;cursor:pointer;textsize:13px;cursor:pointer;text--decoration:underline">decoration:underline">手動で入力する手動で入力する</button></div>'</button></div>'
-+'</div></div>';+'</div></div>';
-app.innerHTML=h2;app.innerHTML=h2;
-var sq2=document.gevar sq2=document.getElementById("sq");tElementById("sq");
-if(sq2)sq2.onkeydown=function(ev){if(ev.key==="Enter"){S.sq=sq2.value;hs2();}};if(sq2)sq2.onkeydown=function(ev){if(ev.key==="Enter"){S.sq=sq2.value;hs2();}};
-return;return;
-}}
-if(S.scr==="stop_select"){if(S.scr==="stop_select"){
-if(!document.getElementById("sl")){if(!document.getElementById("sl")){
-var rtB=S.hasRT?'<div style="fontvar rtB=S.hasRT?'<div style="font--size:12px;color:#22c55e;masize:12px;color:#22c55e;marginrgin--top:4px">top:4px">●● リアルタイムリアルタイムGPSGPS対応対応</div>':'<div style="font</div>':'<div style="font--size:12px;color:'+T.sub+';marginsize:12px;color:'+T.sub+';margin--top:4px">top:4px">○○ 時刻表ベースで動作します時刻表ベースで動作します</div>';</div>';
-app.innerHTML='<div style="background:'+T.hdr+';padding:22px 14px app.innerHTML='<div style="background:'+T.hdr+';padding:22px 14px 14px;margin:14px;margin:--14px 14px --14px 14px">'14px 14px">'
-+'<button onclick="goChangeC+'<button onclick="goChangeCompany()" ompany()" style="background:rgba(255,255,255,0.15);border:none;borderstyle="background:rgba(255,255,255,0.15);border:none;border--radius:8px;color:white;padding:5px 10px;fontradius:8px;color:white;padding:5px 10px;font--size:13px;cursor:pointer;marginsize:13px;cursor:pointer;margin--bottom:10px;display:block">bottom:10px;display:block">←← バス会社を変更バス会社を変更</button>'</button>'
-+'<div style="font+'<div style="font--size:17px;fontsize:17px;font--weight:800;color:whiteweight:800;color:white">">乗る停留所を選んでく乗る停留所を選んでくださいださい</div>'</div>'
-+'<div style="font+'<div style="font--size:12px;color:rgba(255,255,255,0.8);marginsize:12px;color:rgba(255,255,255,0.8);margin--top:3px">top:3px">→→ の行の行き先を参考に方向を確認してくださいき先を参考に方向を確認してください</div>'</div>'
-+rtB+'</div>'+rtB+'</div>'
-+'<div style="background:'+T.card+';border+'<div style="background:'+T.card+';border--radius:14px;padding:12px;border:1px radius:14px;padding:12px;border:1px solid '+T.border+';msolid '+T.border+';marginargin--bottom:14px">'bottom:14px">'
-+'<input id="sf" type="text" style="background:'+T.bg+';border:1px solid +'<input id="sf" type="text" style="background:'+T.bg+';border:1px solid '+T.border+';border'+T.border+';border--radius:8px;color:'+T.text+';padding:10px 12px;fontradius:8px;color:'+T.text+';padding:10px 12px;font--size:14px;fontsize:14px;font--family:inherit;outline:none;width:100%" placeholder="family:inherit;outline:none;width:100%" placeholder="🔍 停留所名で絞り込み…停留所名で絞り込み…">'">'
-+'</div><div id="sl"></div>';+'</div><div id="sl"></div>';
-var sf2=document.getElementById("sf");var sf2=document.getElementById("sf");
-if(sf2)sf2.addEventListener("input",function(ev){S.sf=ev.target.value;rsl();});if(sf2)sf2.addEventListener("input",function(ev){S.sf=ev.target.value;rsl();});
-}}
-rsl();return;rsl();return;
-}}
-if(S.scr==="manual"){if(S.scr==="manual"){
-var inp="background:"+T.card+";bvar inp="background:"+T.card+";border:1px solid "+T.border+";borderorder:1px solid "+T.border+";border--radius:8px;color:"+T.text+";padding:10px 12px;fontradius:8px;color:"+T.text+";padding:10px 12px;font--size:14px;fontsize:14px;font--family:inherit;outline:none;width:100%;marginfamily:inherit;outline:none;width:100%;margin--bottom:10px";bottom:10px";
-app.innerHTML='<button onclick="S.scr=app.innerHTML='<button onclick="S.scr=¥¥'welcome'welcome¥¥';render()" class="btn" ';render()" class="btn" style="background:style="background:'+T.card+';border:1px solid '+T.border+';padding:6px '+T.card+';border:1px solid '+T.border+';padding:6px 12px;color:'+T.sub+';margin12px;color:'+T.sub+';margin--bottom:14px;display:block">bottom:14px;display:block">←← 戻る戻る</button>'</button>'
-+'<div style="font+'<div style="font--size:16px;fontsize:16px;font--weight:700;marginweight:700;margin--bottom:12px;color:'+T.text+'">bottom:12px;color:'+T.text+'">✏✏️ 手動入力手動入力</div>'</div>'
-+'<div style="font+'<div style="font--size:12pxsize:12px;color:'+T.sub+';margin;color:'+T.sub+';margin--bottom:4px">bottom:4px">路線名路線名</div><input id="mn2" type="text" style="'+inp+'" value="'+e(S.mn)+'" placeholder="</div><input id="mn2" type="text" style="'+inp+'" value="'+e(S.mn)+'" placeholder="路路線名線名">'">'
-+'<div style="font+'<div style="font--size:12px;color:'+T.sub+';marginsize:12px;color:'+T.sub+';margin--bottom:4px">bottom:4px">停留所（停留所（11行に行に11つ）つ）</div><textarea id="ms2" style="'+inp+';resize:ve</div><textarea id="ms2" style="'+inp+';resize:vertical" rtical" rows="5">'+e(S.ms)+'</textarea>'rows="5">'+e(S.ms)+'</textarea>'
-+'<div style="font+'<div style="font--size:12px;color:'+T.sub+';marginsize:12px;color:'+T.sub+';margin--bottom:4px">bottom:4px">出発時刻（出発時刻（11行に行に11つ）つ）</div><textarea id="mt2" style="'+inp+';resize:vertical" </div><textarea id="mt2" style="'+inp+';resize:vertical" rows="4">'+e(S.mt)+'</textarea>'rows="4">'+e(S.mt)+'</textarea>'
-+'<div style="font+'<div style="font--size:12px;color:'+T.subsize:12px;color:'+T.sub+';margin+';margin--bottom:4px">bottom:4px">停留所間の平均時停留所間の平均時間（分）間（分）</div><input id="mi2" type="text" style="'+inp+';margin</div><input id="mi2" type="text" style="'+inp+';margin--bottom:14px" bottom:14px" value="'+e(S.mi)+'">'value="'+e(S.mi)+'">'
-+'<button +'<button onclick="S.mn=document.getElementById(onclick="S.mn=document.getElementById(¥¥'mn2'mn2¥¥').value;S.ms=document.getElement').value;S.ms=document.getElementById(ById(¥¥'ms2'ms2¥¥').value;S.mt=document.getEle').value;S.mt=document.getElementById(mentById(¥¥'mt2'mt2¥¥').value;S.mi=document.g').value;S.mi=document.getElementById(etElementById(¥¥'mi2'mi2¥¥').value;am()" class="btn" ').value;am()" class="btn" style="width:100%;padding:12px;background:linearstyle="width:100%;padding:12px;background:linear--
-gradient(135deg,#059669,#0891b2);color:white;font
-gradient(135deg,#059669,#0891b2);color:white;font--size:14px">size:14px">✅✅ 設定する設定する</button>';</button>';
-return;return;
-}}
-if(!S.route){app.innerHif(!S.route){app.innerHTML="";return;}TML="";return;}
-var p0=buses[0]?buses[0].pos:var p0=buses[0]?buses[0].pos:--1;1;
-var ri="";var ri="";
-if(S.rid){var sa=S.lu?Math.round((Date.now()if(S.rid){var sa=S.lu?Math.round((Date.now()--S.lu)/1000):null;ri=S.re?'<span S.lu)/1000):null;ri=S.re?'<span style="color:#ef4444;fontstyle="color:#ef4444;font--size:10px">size:10px">●● RTRTエラーエラー</span>':sa!==null?'<span </span>':sa!==null?'<span style="color:#22c55e;fontstyle="color:#22c55e;font--size:10px;animation:pulse 2s infinite">size:10px;animation:pulse 2s infinite">●● '+(sa<60?sa+"'+(sa<60?sa+"秒前秒前":Math.round(sa/60)+"":Math.round(sa/60)+"分前分前")")+'</span>':'<span style="color:'+T.sub+';font+'</span>':'<span style="color:'+T.sub+';font--size:10px">size:10px">●● 取得中取得中</span>';}</span>';}
-// // ヘッダーヘッダー
-html+='<div style="background:'+T.hdr+';padding:14px 14px 0;margin:html+='<div style="background:'+T.hdr+';padding:14px 14px 0;margin:--14px 14px --14px 14px 0">'0">'
-+'<div style="display:flex;align+'<div style="display:flex;align--items:center;gap:10px;marginitems:center;gap:10px;margin--bottom:10px">'bottom:10px">'
-+'<sp+'<span style="fontan style="font--size:22px;animation:float 2.5s easesize:22px;animation:float 2.5s ease--inin--out infinite">out infinite">🚌</span>'</span>'
-+'<div style="flex:1"><div style="font+'<div style="flex:1"><div style="font--size:15px;fontsize:15px;font--weight:700;color:white">weight:700;color:white">バス接バス接近通知近通知</div>'</div>'
-+'<div style="font+'<div style="font--size:11px;color:rgba(255,255,255,0.6);marginsize:11px;color:rgba(255,255,255,0.6);margin--top:2px;display:flex;gap:6px;aligntop:2px;display:flex;gap:6px;align--items:center">'items:center">'
-+'<span style="max+'<span style="max--width:150px;overflow:hidden;textwidth:150px;overflow:hidden;text--overflow:ellipsis;whiteoverflow:ellipsis;white--space:nowrap">'+e(S.route.name)+'</span>'space:nowrap">'+e(S.route.name)+'</span>'
-+(!S.rid?'<span s+(!S.rid?'<span style="color:rgba(255,255,255,0.5);fonttyle="color:rgba(255,255,255,0.5);font--size:10px">size:10px">○○ 時刻表ベース時刻表ベース</span>':ri)</span>':ri)
-+'</div></div>'+'</div></div>'
-+'<div style="font+'<div style="font--size:22px;fontsize:22px;font--weight:800;color:white">'+ft(S.now)+'</div>'weight:800;color:white">'+ft(S.now)+'</div>'
-+'</div>'+'</div>'
-+'<div style="display:flex;gap:6px;padding+'<div style="display:flex;gap:6px;padding--bottom:12px">'bottom:12px">'
-+'<button on+'<button onclick="goChangeCompany()" click="goChangeCompany()" style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);borderrgba(255,255,255,0.2);border--radius:8px;color:white;fontradius:8px;color:white;font--size:12px;cursor:pointer;fontsize:12px;cursor:pointer;font--family:inherit">family:inherit">🔄 バス会社を変更バス会社を変更</button>'</button>'
-+'<button onclick="goChange+'<button onclick="goChangeStop()" Stop()" style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid
-rgba(255,255,255,0.2);border
-rgba(255,255,255,0.2);border--radius:8px;color:white;fontradius:8px;color:white;font--size:12px;cursor:pointer;fontsize:12px;cursor:pointer;font--family:inherit">family:inherit">🚏 バス停を変更バス停を変更</button>'</button>'
-+'<button onclick="S.showTimetable=!S.showTime+'<button onclick="S.showTimetable=!S.showTimetable;render()" table;render()" style="flex:1;padding:7px;background:'+(S.showTimetable?"rgba(255,255,255,0.4)":"rgbstyle="flex:1;padding:7px;background:'+(S.showTimetable?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.15)")+';border:1px solid rgba(255,255,255,0.2);bordera(255,255,255,0.15)")+';border:1px solid rgba(255,255,255,0.2);border--radius:8px;color:white;fontradius:8px;color:white;font--size:12px;size:12px;cursor:pointer;fontcursor:pointer;font--family:inherit">family:inherit">📋 時刻表時刻表</butt</button>'on>'
-+'</div></div>'+'</div></div>'
-+'<div style="height:14px"></div>';+'<div style="height:14px"></div>';
-// // 時刻表表示時刻表表示
-if(S.showTimetable){if(S.showTimetable){
-html+=renderTimetable(T);html+=renderTimetable(T);
-}}
-if(!S.rid){if(!S.rid){
-html+='<div style="background:'+T.card+';borderhtml+='<div style="background:'+T.card+';border--radius:10px;padding:10px radius:10px;padding:10px 14px;margin14px;margin--bottom:14px;fontbottom:14px;font--size:size:12px;color:'+T.sub+';border:1px solid 12px;color:'+T.sub+';border:1px solid '+T.border+';display:flex;align'+T.border+';display:flex;align--items:center;gap:8px">'items:center;gap:8px">'
-+'<span>+'<span>ℹℹ️</span><span><strong style="color:'+T.text+'"></span><span><strong style="color:'+T.text+'">時刻表ベース時刻表ベース</strong></strong>でバス位置を推定していますでバス位置を推定しています</span></div>';</span></div>';
-}}
-// // 次のバスカード次のバスカード
-if(nx){if(nx){
-var dl=nx.dl>0.5?'<div styvar dl=nx.dl>0.5?'<div style="fontle="font--size:11px;color:#f97316;marginsize:11px;color:#f97316;margin--top:3px">top:3px">⚠⚠️ '+Math.round(nx.dl)+''+Math.round(nx.dl)+'分遅れ分遅れ</div>':nx.dl<</div>':nx.dl<--0.5?'<div style="font0.5?'<div style="font--size:11px;color:#22c55e;marginsize:11px;color:#22c55e;margin--top:3px">top:3px">✓✓ '+Math.round('+Math.round(--nx.dl)+'nx.dl)+'分早め分早め</div>':"";</div>':"";
-html+='<div style="background:'+(urg?"linearhtml+='<div style="background:'+(urg?"linear--gradient(135deggradient(135deg,#7f1d1d,#450a0a)":"linear,#7f1d1d,#450a0a)":"linear--gradient(135deg,"+T.bg+","+T.card+")")+';bordergradient(135deg,"+T.bg+","+T.card+")")+';border--radius:20px;padding:18px;border:1px radius:20px;padding:18px;border:1px solid '+(urg?"#ef4444":T.border)+';marginsolid '+(urg?"#ef4444":T.border)+';margin--bottom:14px;animation:'+(urg?"urgent 1.5s bottom:14px;animation:'+(urg?"urgent 1.5s infinite":"none")+'">'infinite":"none")+'">'
-+'<div style="display:flex;justify+'<div style="display:flex;justify--content:spacecontent:space--between;alignbetween;align--items:flexitems:flex--start">'start">'
-+'<div><div style="font+'<div><div style="font--size:11px;color:'+(urg?"#f87171":T.sub)+';marginsize:11px;color:'+(urg?"#f87171":T.sub)+';margin--bottom:4px">'+(urg?"bottom:4px">'+(urg?"⚡⚡ もうすぐ！もうすぐ！":"":"次のバスまで次のバスまで")+'</div>'")+'</div>'
-+'<div><span style="font+'<div><span style="font--size:48px;fontsize:48px;font--weight:900;color:'+(urg?"#fca5a5":T.text)+'">'+mins+'</span><span style="fontweight:900;color:'+(urg?"#fca5a5":T.text)+'">'+mins+'</span><span style="font--size:16px;color:'+(urg?"#f87171":T.sub)+'" > size:16px;color:'+(urg?"#f87171":T.sub)+'" > 分分</span></div>'</span></div>'
-+'<div style="font+'<div style="font--size:12px;color:'+T.sub+';marginsize:12px;color:'+T.sub+';margin--top:3px">'+ft(nx.top:3px">'+ft(nx.times[S.ti])+'times[S.ti])+'着着'+(nx.rt?' <span style="color:#22c55e;font'+(nx.rt?' <span style="color:#22c55e;font--size:10px">GPS</span>':'')+'</div>'size:10px">GPS</span>':'')+'</div>'
-+dl+'</div>'+dl+'</div>'
-+'<div style="text+'<div style="text--align:right"><div style="fontalign:right"><div style="font--size:11px;color:'+T.sub+';marginsize:11px;color:'+T.sub+';margin--bottom:3px">bottom:3px">乗車停留所乗車停留所</div>'</div>'
-+'<div style="font+'<div style="font--size:14px;fsize:14px;fontont--weight:700;color:'+(urg?"#fca5a5":T.acc)+';maxweight:700;color:'+(urg?"#fca5a5":T.acc)+';max--width:120px;textwidth:120px;text--align:right;linealign:right;line--height:1.4">'+(S.route.stops[S.ti]?e(S.route.stops[S.ti].name):"")+'</div>'height:1.4">'+(S.route.stops[S.ti]?e(S.route.stops[S.ti].name):"")+'</div>'
-+'</div></div>'+'</div></div>'
-+'<div style="margin+'<div style="margin--top:12px;background:rgba(0,0,0,0.15);bordertop:12px;background:rgba(0,0,0,0.15);border--radiusradius:5px;height:5px;overflow:hidden">':5px;height:5px;overflow:hidden">'
-+'<div style="width:'+Math.max(3,(nx.pos/(S.route.stops.length+'<div style="width:'+Math.max(3,(nx.pos/(S.route.stops.length--1))*100)+'%;height:100%;background:'+(urg?"linear1))*100)+'%;height:100%;background:'+(urg?"linear--gradient(to gradient(to right,#ef4444,#f97316)":"linearright,#ef4444,#f97316)":"linear--gradient(to right,#22c55e,"+T.acc+")")+';bordergradient(to right,#22c55e,"+T.acc+")")+';border--radius:5px;tradius:5px;transition:width 0.8s ease"></div>'ransition:width 0.8s ease"></div>'
-+'</div>'+'</div>'
-+'<div style="display:flex;justify+'<div style="display:flex;justify--content:spacecontent:space--between;fontbetween;font--size:10px;color:'+T.sub+';marginsize:10px;color:'+T.sub+';margin--top:3px">'top:3px">'
-+'<span>'+(S.route.stops[0]?e(S.route.stops[0].name):"")+'</span><span>'+(S.route.stop+'<span>'+(S.route.stops[0]?e(S.route.stops[0].name):"")+'</span><span>'+(S.route.stops[S.rous[S.route.stops.lengthte.stops.length--1]?e(S.route.stops[S.route.stops.length1]?e(S.route.stops[S.route.stops.length--1].name):"")+'</span></div></div>';1].name):"")+'</span></div></div>';
-}else{}else{
-// // 運行なし運行なし →→ 次の便を表示次の便を表示
-var nextStr="";var nextStr="";
-if(nextInfo){if(nextInfo){
-nextStr='<div style="fontnextStr='<div style="font--size:13px;color:'+T.acc+';marginsize:13px;color:'+T.acc+';margin--top:8px;fonttop:8px;font--weight:600">'weight:600">'
-+(nextInfo.isToday?"+(nextInfo.isToday?"本日本日":"":"翌日翌日")+'")+'の次の便の次の便: '+ft(nextInfo.time)+': '+ft(nextInfo.time)+'着予定着予定''
-+'<div style="font+'<div style="font--size:11px;color:'+T.sub+';fontsize:11px;color:'+T.sub+';font--weight:400;marginweight:400;margin--top:2px">top:2px">約約'+Math.ceil(nextInfo.mtt/60)+''+Math.ceil(nextInfo.mtt/60)+'時間時間'+Math.round(nextInfo.mtt%60)+''+Math.round(nextInfo.mtt%60)+'分後分後</div>'</div>'
-+'</div>';+'</div>';
-}}
-html+='html+='<div style="background:'+T.card+';border<div style="background:'+T.card+';border--radius:20px;padding:22px;border:1px solid '+T.border+';marginradius:20px;padding:22px;border:1px solid '+T.border+';margin--bottom:14px;textbottom:14px;text--align:center">'align:center">'
-+'<div style="font+'<div style="font--size:28px;marginsize:28px;margin--bottom:8px">'+T.icon+'</div>'bottom:8px">'+T.icon+'</div>'
-+'<div style="font+'<div style="font--size:14px;color:'+T.sub+'">size:14px;color:'+T.sub+'">現在、運行時間外です現在、運行時間外です</div>'</div>'
-+nextStr+nextStr
-+(S.route.timetable?'<div style="font+(S.route.timetable?'<div style="font--size:11px;color:'+T.sub+';marginsize:11px;color:'+T.sub+';margin--top:8px">top:8px">上上の「の「📋 時刻表」で詳細を確認できます時刻表」で詳細を確認できます</div>':"")</div>':"")
-+'</div>';+'</div>';
-}}
-// // タイムラインタイムライン
-html+='<div style="background:'+T.card+';borderhtml+='<div style="background:'+T.card+';border--radius:16px;padding:14px radius:16px;padding:14px 12px;border:1px solid '+T.border+';margin12px;border:1px solid '+T.border+';margin--bottom:14px">'bottom:14px">'
-+'<div style="font+'<div style="font--size:11px;color:'+T.sub+';marginsize:11px;color:'+T.sub+';margin--bottom:10px;paddingbottom:10px;padding--left:6px;display:flex;justifyleft:6px;display:flex;justify--content:spacecontent:space--betweebetween">'n">'
-+'<span>+'<span>バスの現在位置バスの現在位置'+(buses[0]&&buses[0].rt?' <span '+(buses[0]&&buses[0].rt?' <span style="color:#22c55e">GPS</span>':' <span style="color:'+T.sub+'">style="color:#22c55e">GPS</span>':' <span style="color:'+T.sub+'">推定推定</span>')+'</span>'</span>')+'</span>'
-+(nai!==null&&S.route.stops[nai]?'<span style="color:#a78bfa;font+(nai!==null&&S.route.stops[nai]?'<span style="color:#a78bfa;font--size:11px">size:11px">🔔 '+e(S.route.stops[nai].name)+'<'+e(S.route.stops[nai].name)+'</span>':"")/span>':"")
-+'</div>'+'</div>'
-+'<div style="position:relative;padding+'<div style="position:relative;padding--left:10px">'left:10px">'
-+'<div +'<div style="position:absolute;left:18px;top:6px;bottom:6px;width:2px;background:'+T.borderstyle="position:absolute;left:18px;top:6px;bottom:6px;width:2px;background:'+T.border+';border+';border--radius:2px"></div>';radius:2px"></div>';
-if(p0>=0)html+='<div if(p0>=0)html+='<div style="position:absolute;leftstyle="position:absolute;left:18px;top:6px;height:'+Math.min(p0,S.route.stops.length:18px;top:6px;height:'+Math.min(p0,S.route.stops.length--1)/(S.route.stops.length1)/(S.route.stops.length--1)*100+'%;width:2px;background:linear1)*100+'%;width:2px;background:linear--gradient(to gradient(to bottom,#22c55e,'+T.acc+');borderbottom,#22c55e,'+T.acc+');border--radius:2px;transition:height 0.8s ease"></div>';radius:2px;transition:height 0.8s ease"></div>';
-S.route.stops.forEach(function(s,i){S.route.stops.forEach(function(s,i){
-var passed=i<p0var passed=i<p0--0.3,isTgt=i===S.ti,isNot=i===nai,isBus=Math.abs(i0.3,isTgt=i===S.ti,isNot=i===nai,isBus=Math.abs(i--p0)<0.7;p0)<0.7;
-var col=isBus?"#facc15":isTgt?T.acc:isNot?"#a78bfa":passed?"#22c55e":T.border;var col=isBus?"#facc15":isTgt?T.acc:isNot?"#a78bfa":passed?"#22c55e":T.border;
-html+='<div style="display:flex;alignhtml+='<div style="display:flex;align--items:center;marginitems:center;margin--bottom:'+(i<S.route.stops.lengthbottom:'+(i<S.route.stops.length--1?"1?"10px":"0")+';opacity:'+(passed&&!isTgt&&!isNot?"0.3":"1")+'">'10px":"0")+';opacity:'+(passed&&!isTgt&&!isNot?"0.3":"1")+'">'
-+'<div style="width:14px;height:14px;border+'<div style="width:14px;height:14px;border--radius:50%;background:'+col+';border:2px solid '+T.bg+';flexradius:50%;background:'+col+';border:2px solid '+T.bg+';flex--shrink:0;zshrink:0;z--index:1;boxindex:1;box--shadow:'+(isBus||isTgt?"0 0 10px "+col:"none")+'"></div>'shadow:'+(isBus||isTgt?"0 0 10px "+col:"none")+'"></div>'
-+'<div style="margin+'<div style="margin--left:12px;fontleft:12px;font--size:'+(isTgt?"14px":"12px")+';fontsize:'+(isTgt?"14px":"12px")+';font--weight:'+(isTgt||isBus?"700":"400")+';color:'+(isBus?"#facc15":isTgt?T.acc:isNot?"#a78bweight:'+(isTgt||isBus?"700":"400")+';color:'+(isBus?"#facc15":isTgt?T.acc:isNot?"#a78bfa":passed?T.sub:T.text)+';display:flex;alignfa":passed?T.sub:T.text)+';display:flex;align--items:center;gap:5px;flexitems:center;gap:5px;flex--wrap:wrap">'wrap:wrap">'
-+e(s.na+e(s.name)me)
-+(isTgt?'<span style="background:'+T.acc+'22;color:'+T.acc+';border:1px solid +(isTgt?'<span style="background:'+T.acc+'22;color:'+T.acc+';border:1px solid '+T.acc+'44;border'+T.acc+'44;border--radius:5px;padding:1px 5px;fontradius:5px;padding:1px 5px;font--size:10px">size:10px">乗車乗車</span>':"")</span>':"")
-+(isNot&&!isTgt?'<span style="background:#a78bfa22;color:#a78bfa;border:1px +(isNot&&!isTgt?'<span style="background:#a78bfa22;color:#a78bfa;border:1px solid #a78bfasolid #a78bfa44;border44;border--radius:5px;padding:1px 5px;fontradius:5px;padding:1px 5px;font--size:10px">size:10px">通知通知</span>':"")</span>':"")
-+(isBus?"+(isBus?"🚌":"")":"")
-+'</div></div>';+'</div></div>';
-});});
-html+='</div></div>';html+='</div></div>';
-html+='<button onclick="S.ss=!S.ss;render()" class="btn" html+='<button onclick="S.ss=!S.ss;render()" class="btn" style="width:100%;padding:11px;background:'+T.card+';borstyle="width:100%;padding:11px;background:'+T.card+';border:1px solid der:1px solid '+T.border+';border'+T.border+';border--radius:12px;color:'+T.sub+';fontradius:12px;color:'+T.sub+';font--size:13px;marginsize:13px;margin--bottom:'+(S.ss?"0":"4px")+'">bottom:'+(S.ss?"0":"4px")+'">⚙⚙️ 通知設定通知設定 '+(S.ss?"'+(S.ss?"▲▲":"":"▼▼")+'</button>';")+'</button>';
-if(S.ss){if(S.ss){
-html+='<div style="marginhtml+='<div style="margin--top:14px">'top:14px">'
-+'<div style="background:'+T.card+';border+'<div style="background:'+T.card+';border--radiradius:14px;padding:16px;border:1px us:14px;padding:16px;border:1px solid '+T.border+';marginsolid '+T.border+';margin--bottom:14px">'bottom:14px">'
-+'<div style="font+'<div style="font--size:13px;fontsize:13px;font--weight:600;marginweight:600;margin--bottom:10px;color:'+T.text+'">bottom:10px;color:'+T.text+'">🎯 乗車停留所乗車停留所</div>'</div>'
-+'<div style="display:flex;flex+'<div style="display:flex;flex--direction:column;gap:5px">';direction:column;gap:5px">';
-S.route.stops.forEach(function(s,i){S.route.stops.forEach(function(s,i){
-html+='<button html+='<button onclick="S.ti='+i+';S.nids=[];sv({route:S.route,ti:'+i+',gurl:S.gurl,rid:S.rid,hasRT:S.hasRonclick="S.ti='+i+';S.nids=[];sv({route:S.route,ti:'+i+',gurl:S.gurl,rid:S.rid,hasRT:S.hasRT,nm:S.nm,ns:S.ns,nm2:S.nm2});render()" style="padding:8px T,nm:S.nm,ns:S.ns,nm2:S.nm2});render()" style="padding:8px 12px;background:'+(S.ti===i?T.acc+"22":T.bg)12px;background:'+(S.ti===i?T.acc+"22":T.bg)+';border:1px solid +';border:1px solid '+(S.ti===i?T.acc:T.border)+';border'+(S.ti===i?T.acc:T.border)+';border--radius:8px;color:'+(S.ti===i?T.acc:T.sub)+';textradius:8px;color:'+(S.ti===i?T.acc:T.sub)+';text--align:left;fontalign:left;font--size:13px;cursor:pointer;fontsize:13px;cursor:pointer;font--family:inherit">'family:inherit">'
-+'<span style="opacity:0.4;margin+'<span style="opacity:0.4;margin--right:6px;fontright:6px;font--size:10px">'+(i+1)+'</span>'+e(size:10px">'+(i+1)+'</span>'+e(s.name)+'</button>';s.name)+'</button>';
-});});
-html+='</div></div>'html+='</div></div>'
-+'<div style="background:'+T.card+';border+'<div style="background:'+T.card+';border--radius:14px;padding:16px;border:1px radius:14px;padding:16px;border:1px solid '+T.border+';marginsolid '+T.border+';margin--bottom:14px">'bottom:14px">'
-+'<div style="font+'<div style="font--size:13px;fontsize:13px;font--weight:600;marginweight:600;margin--bottom:10px;color:'+T.bottom:10px;color:'+T.text+'">text+'">🔔 通知タイミング通知タイミング</div>'</div>'
-+'<div style="display:flex;background:'+T.bg+';border+'<div style="display:flex;background:'+T.bg+';border--radius:10px;padding:3px;marginradius:10px;padding:3px;margin--bottom:10px">'bottom:10px">'
-+'<button onclick="S.nm=+'<button onclick="S.nm=¥¥'stops'stops¥¥';render()" ';render()" style="flex:1;padding:7px;border:none;borderstyle="flex:1;padding:7px;border:none;border--radius:8px;background:'+(S.nm==="radius:8px;background:'+(S.nm==="stops"?T.acc:"none")+';color:'+(S.nm==="stops"?"whistops"?T.acc:"none")+';color:'+(S.nm==="stops"?"white":T.sub)+';fontte":T.sub)+';font--size:12px;cursor:pointer;fontsize:12px;cursor:pointer;font--family:inherit">family:inherit">何つ前の停留所何つ前の停留所</button</button>'>'
-+'<button onclick="S.nm=+'<button onclick="S.nm=¥¥'minutes'minutes¥¥';render()" ';render()" style="flex:1;padding:7px;border:none;borderstyle="flex:1;padding:7px;border:none;border--radius:8px;background:'+(S.nradius:8px;background:'+(S.nm==="minutes"?T.acc:"none")+';color:'+(S.nm==="minutesm==="minutes"?T.acc:"none")+';color:'+(S.nm==="minutes"?"white":T.sub)+';font"?"white":T.sub)+';font--size:12px;cursor:pointer;fontsize:12px;cursor:pointer;font--family:inherit">family:inherit">何分前何分前</butt</button>'on>'
-+'</div>';+'</div>';
-if(S.nm==="stops"){if(S.nm==="stops"){
-html+='<div style="display:flex;justifyhtml+='<div style="display:flex;justify--content:spacecontent:space--between;fontbetween;font--size:1size:12px;color:'+T.sub+';margin2px;color:'+T.sub+';margin--bottom:5px"><span>bottom:5px"><span>前の停留所数前の停留所数</span><span </span><span style="color:'+T.acc+';fontstyle="color:'+T.acc+';font--weight:700">'+S.ns+'weight:700">'+S.ns+'つ前つ前</span></div>'</span></div>'
-+'<input type="range" style="accent+'<input type="range" style="accent--color:'+T.acc+'" min="1" color:'+T.acc+'" min="1" max="'+Math.min(5,S.ti||5)+'" value="'+S.ns+'" onchange="S.nmax="'+Math.min(5,S.ti||5)+'" value="'+S.ns+'" onchange="S.ns=+this.value;render()" s=+this.value;render()" oninput="S.ns=+this.value;render()">'oninput="S.ns=+this.value;render()">'
-+'<div style="margin+'<div style="margin--top:8px;background:'+T.bg+';bordertop:8px;background:'+T.bg+';border--radius:8px;padding:7px radius:8px;padding:7px 10px;font10px;font--size:12px;color:'+T.sub+'">size:12px;color:'+T.sub+'">📍 <span <span style="color:#a78bfa">'+(S.route.stops[Math.max(0,S.tistyle="color:#a78bfa">'+(S.route.stops[Math.max(0,S.ti--S.ns)]?eS.ns)]?e(S.route.stops[Math.max(0,S.ti(S.route.stops[Math.max(0,S.ti--S.ns)].name):"")+'</span></div>';S.ns)].name):"")+'</span></div>';
-}else{}else{
-html+='<div style="display:flex;justifyhtml+='<div style="display:flex;justify--content:spacecontent:space--between;fontbetween;font--size:12px;color:'+T.sub+';marginsize:12px;color:'+T.sub+';margin--bottom:5px"><span>bottom:5px"><span>到着前の分数到着前の分数</span><span </span><span style="color:'+T.acc+';fontstyle="color:'+T.acc+';font--weight:70weight:700">'+S.nm2+'0">'+S.nm2+'分前分前</span></div>'</span></div>'
-+'<input type="range" style="accent+'<input type="range" style="accent--color:'+T.acc+'" min="1" max="15" color:'+T.acc+'" min="1" max="15" value="'+S.nm2+'" onchange="S.nm2=+this.value;render()" value="'+S.nm2+'" onchange="S.nm2=+this.value;render()" oninput="S.nm2=+this.value;render()">';oninput="S.nm2=+this.value;render()">';
-}}
-html+='</div>'html+='</div>'
-+'<button onclick="if(wind+'<button onclick="if(window.Notification)Notification.requestPermission()" ow.Notification)Notification.requestPermission()" class="btn" style="width:100%;padding:11px;background:linearclass="btn" style="width:100%;padding:11px;background:linear--gradient(135deg,#7c3aed,#4f46e5);color:white;margingradient(135deg,#7c3aed,#4f46e5);color:white;margin--bottom:8px">bottom:8px">🔔 スマホ通知を許スマホ通知を許可する可する</button>';</button>';
-if(S.rid)html+='<button onclick="drt()" class="btn" if(S.rid)html+='<button onclick="drt()" class="btn" style="width:100%;padding:11px;background:'+T.card+';border:1px solid style="width:100%;padding:11px;background:'+T.card+';border:1px solid '+T.border+';color:'+T.acc+';margin'+T.border+';color:'+T.acc+';margin--bottom:8px">bottom:8px">🔃 位置情報を今すぐ更新位置情報を今すぐ更新</button>';</button>';
-html+='</div>';html+='</div>';
-}}
-app.innerHTML=html;app.innerHTML=html;
+  var T=TH[S.theme];
+  document.body.style.background=T.bg;
+  document.body.style.color=T.text;
+  var app=document.getElementById("app"),html="",buses=gb(),nx=null;
+  for(var i=0;i<buses.length;i++){if(buses[i].mtt>0){nx=buses[i];break;}}
+  var mins=nx?Math.ceil(nx.mtt):null,urg=mins!==null&&mins<=3;
+  var nai=S.nm==="stops"?Math.max(0,S.ti-S.ns):null;
+  var nextInfo=getNextBusInfo();
+
+  if(S.ban){
+    html+='<div style="position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:200;background:linear-gradient(135deg,#0ea5e9,#6366f1);color:white;padding:12px 16px;border-radius:14px;box-shadow:0 8px 24px rgba(14,165,233,0.5);max-width:90vw;display:flex;align-items:center;gap:10px">'
+    +'<span>🔔</span><span style="font-size:13px;font-weight:600;flex:1">'+e(S.ban)+'</span>'
+    +'<button onclick="S.ban=null;render()" style="background:rgba(255,255,255,0.2);border:none;color:white;border-radius:6px;padding:3px 8px;cursor:pointer">✕</button></div>';
+  }
+
+  if(S.scr==="loading"){
+    app.innerHTML='<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">'
+    +'<div style="font-size:48px;margin-bottom:16px">🚌</div>'
+    +'<div style="font-size:14px;color:'+T.sub+';margin-bottom:14px">'+e(S.lm)+'</div>'
+    +'<button onclick="S.scr=\'welcome\';S.lm=\'\';S.le=\'\';render()" class="btn" style="background:'+T.card+';padding:10px 18px;color:'+T.sub+';border:1px solid '+T.border+'">キャンセル</button>'
+    +'</div>';return;
+  }
+
+  if(S.scr==="welcome"){
+    var h2='<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px">'
+    +'<div style="text-align:center;margin-bottom:24px">'
+    +'<div style="font-size:48px;margin-bottom:10px;animation:float 2.5s ease-in-out infinite">🚌</div>'
+    +'<div style="font-size:20px;font-weight:800;margin-bottom:6px;color:'+T.text+'">バス接近通知</div>'
+    +'<div style="font-size:13px;color:'+T.sub+';line-height:1.8">バス会社名を入力するだけで<br>時刻表を自動取得します</div>'
+    +'</div><div style="width:100%;max-width:380px">'
+    +'<div style="display:flex;gap:8px;margin-bottom:10px">'
+    +'<input id="sq" type="text" style="flex:1;border-radius:12px;padding:12px 14px;font-size:15px;background:'+T.card+';border:1px solid '+T.border+';color:'+T.text+';font-family:inherit;outline:none" placeholder="バス会社名（例：〇〇バス、△△交通）" value="'+e(S.sq)+'">'
+    +'<button onclick="S.sq=document.getElementById(\'sq\').value;hs2()" class="btn" style="padding:12px 16px;background:'+T.acc+';color:white;font-size:15px;flex-shrink:0">検索</button>'
+    +'</div>';
+    if(S.le)h2+='<div style="background:#450a0a;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:#f87171">'+e(S.le)+'</div>';
+    if(S.lm)h2+='<div style="text-align:center;color:'+T.sub+';font-size:13px;margin-bottom:8px">'+e(S.lm)+'</div>';
+    if(S.sr.length){
+      h2+='<div style="background:'+T.card+';border-radius:14px;border:1px solid '+T.border+';overflow:hidden;margin-bottom:10px"><div style="font-size:11px;color:'+T.sub+';padding:8px 14px 4px">'+S.sr.length+'件</div>';
+      S.sr.forEach(function(co,i){
+        h2+='<div onclick="selectCompany('+i+')" style="padding:12px 14px;border-top:1px solid '+T.border+';cursor:pointer;display:flex;align-items:center;gap:10px">'
+        +'<div style="font-size:18px">🚌</div><div style="flex:1">'
+        +'<div style="font-size:14px;font-weight:600;color:'+T.text+'">'+e(co.name)+'</div>'
+        +'<div style="font-size:11px;margin-top:2px">'+(co.hasRealtime?'<span style="color:#22c55e">● リアルタイムGPS対応</span>':'<span style="color:'+T.sub+'">○ 時刻表ベース</span>')+'</div>'
+        +'</div><div style="color:'+T.sub+'">›</div></div>';
+      });
+      h2+='</div>';
+    }
+    h2+='<div style="text-align:center"><button onclick="S.scr=\'manual\';render()" style="background:none;border:none;color:'+T.sub+';font-size:13px;cursor:pointer;text-decoration:underline">手動で入力する</button></div>'
+    +'</div></div>';
+    app.innerHTML=h2;
+    var sq2=document.getElementById("sq");
+    if(sq2)sq2.onkeydown=function(ev){if(ev.key==="Enter"){S.sq=sq2.value;hs2();}};
+    return;
+  }
+
+  if(S.scr==="stop_select"){
+    if(!document.getElementById("sl")){
+      var rtB=S.hasRT?'<div style="font-size:12px;color:#22c55e;margin-top:4px">● リアルタイムGPS対応</div>':'<div style="font-size:12px;color:'+T.sub+';margin-top:4px">○ 時刻表ベースで動作します</div>';
+      app.innerHTML='<div style="background:'+T.hdr+';padding:22px 14px 14px;margin:-14px -14px 14px">'
+      +'<button onclick="goChangeCompany()" style="background:rgba(255,255,255,0.15);border:none;border-radius:8px;color:white;padding:5px 10px;font-size:13px;cursor:pointer;margin-bottom:10px;display:block">← バス会社を変更</button>'
+      +'<div style="font-size:17px;font-weight:800;color:white">乗る停留所を選んでください</div>'
+      +'<div style="font-size:12px;color:rgba(255,255,255,0.8);margin-top:3px">→ の行き先を参考に方向を確認してください</div>'
+      +rtB+'</div>'
+      +'<div style="background:'+T.card+';border-radius:14px;padding:12px;border:1px solid '+T.border+';margin-bottom:14px">'
+      +'<input id="sf" type="text" style="background:'+T.bg+';border:1px solid '+T.border+';border-radius:8px;color:'+T.text+';padding:10px 12px;font-size:14px;font-family:inherit;outline:none;width:100%" placeholder="🔍 停留所名で絞り込み…">'
+      +'</div><div id="sl"></div>';
+      var sf2=document.getElementById("sf");
+      if(sf2)sf2.addEventListener("input",function(ev){S.sf=ev.target.value;rsl();});
+    }
+    rsl();return;
+  }
+
+  if(S.scr==="manual"){
+    var inp="background:"+T.card+";border:1px solid "+T.border+";border-radius:8px;color:"+T.text+";padding:10px 12px;font-size:14px;font-family:inherit;outline:none;width:100%;margin-bottom:10px";
+    app.innerHTML='<button onclick="S.scr=\'welcome\';render()" class="btn" style="background:'+T.card+';border:1px solid '+T.border+';padding:6px 12px;color:'+T.sub+';margin-bottom:14px;display:block">← 戻る</button>'
+    +'<div style="font-size:16px;font-weight:700;margin-bottom:12px;color:'+T.text+'">✏️ 手動入力</div>'
+    +'<div style="font-size:12px;color:'+T.sub+';margin-bottom:4px">路線名</div><input id="mn2" type="text" style="'+inp+'" value="'+e(S.mn)+'" placeholder="路線名">'
+    +'<div style="font-size:12px;color:'+T.sub+';margin-bottom:4px">停留所（1行に1つ）</div><textarea id="ms2" style="'+inp+';resize:vertical" rows="5">'+e(S.ms)+'</textarea>'
+    +'<div style="font-size:12px;color:'+T.sub+';margin-bottom:4px">出発時刻（1行に1つ）</div><textarea id="mt2" style="'+inp+';resize:vertical" rows="4">'+e(S.mt)+'</textarea>'
+    +'<div style="font-size:12px;color:'+T.sub+';margin-bottom:4px">停留所間の平均時間（分）</div><input id="mi2" type="text" style="'+inp+';margin-bottom:14px" value="'+e(S.mi)+'">'
+    +'<button onclick="S.mn=document.getElementById(\'mn2\').value;S.ms=document.getElementById(\'ms2\').value;S.mt=document.getElementById(\'mt2\').value;S.mi=document.getElementById(\'mi2\').value;am()" class="btn" style="width:100%;padding:12px;background:linear-gradient(135deg,#059669,#0891b2);color:white;font-size:14px">✅ 設定する</button>';
+    return;
+  }
+
+  if(!S.route){app.innerHTML="";return;}
+  var p0=buses[0]?buses[0].pos:-1;
+  var ri="";
+  if(S.rid){var sa=S.lu?Math.round((Date.now()-S.lu)/1000):null;ri=S.re?'<span style="color:#ef4444;font-size:10px">● RTエラー</span>':sa!==null?'<span style="color:#22c55e;font-size:10px;animation:pulse 2s infinite">● '+(sa<60?sa+"秒前":Math.round(sa/60)+"分前")+'</span>':'<span style="color:'+T.sub+';font-size:10px">● 取得中</span>';}
+
+  // ヘッダー
+  html+='<div style="background:'+T.hdr+';padding:14px 14px 0;margin:-14px -14px 0">'
+  +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
+  +'<span style="font-size:22px;animation:float 2.5s ease-in-out infinite">🚌</span>'
+  +'<div style="flex:1"><div style="font-size:15px;font-weight:700;color:white">バス接近通知</div>'
+  +'<div style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px;display:flex;gap:6px;align-items:center">'
+  +'<span style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e(S.route.name)+'</span>'
+  +(!S.rid?'<span style="color:rgba(255,255,255,0.5);font-size:10px">○ 時刻表ベース</span>':ri)
+  +'</div></div>'
+  +'<div style="font-size:22px;font-weight:800;color:white">'+ft(S.now)+'</div>'
+  +'</div>'
+  +'<div style="display:flex;gap:6px;padding-bottom:12px">'
+  +'<button onclick="goChangeCompany()" style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;cursor:pointer;font-family:inherit">🔄 バス会社を変更</button>'
+  +'<button onclick="goChangeStop()" style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;cursor:pointer;font-family:inherit">🚏 バス停を変更</button>'
+  +'<button onclick="S.showTimetable=!S.showTimetable;render()" style="flex:1;padding:7px;background:'+(S.showTimetable?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.15)")+';border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;cursor:pointer;font-family:inherit">📋 時刻表</button>'
+  +'</div></div>'
+  +'<div style="height:14px"></div>';
+
+  // 時刻表表示
+  if(S.showTimetable){
+    html+=renderTimetable(T);
+  }
+
+  if(!S.rid){
+    html+='<div style="background:'+T.card+';border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:'+T.sub+';border:1px solid '+T.border+';display:flex;align-items:center;gap:8px">'
+    +'<span>ℹ️</span><span><strong style="color:'+T.text+'">時刻表ベース</strong>でバス位置を推定しています</span></div>';
+  }
+
+  // 次のバスカード
+  if(nx){
+    var dl=nx.dl>0.5?'<div style="font-size:11px;color:#f97316;margin-top:3px">⚠️ '+Math.round(nx.dl)+'分遅れ</div>':nx.dl<-0.5?'<div style="font-size:11px;color:#22c55e;margin-top:3px">✓ '+Math.round(-nx.dl)+'分早め</div>':"";
+    html+='<div style="background:'+(urg?"linear-gradient(135deg,#7f1d1d,#450a0a)":"linear-gradient(135deg,"+T.bg+","+T.card+")")+';border-radius:20px;padding:18px;border:1px solid '+(urg?"#ef4444":T.border)+';margin-bottom:14px;animation:'+(urg?"urgent 1.5s infinite":"none")+'">'
+    +'<div style="display:flex;justify-content:space-between;align-items:flex-start">'
+    +'<div><div style="font-size:11px;color:'+(urg?"#f87171":T.sub)+';margin-bottom:4px">'+(urg?"⚡ もうすぐ！":"次のバスまで")+'</div>'
+    +'<div><span style="font-size:48px;font-weight:900;color:'+(urg?"#fca5a5":T.text)+'">'+mins+'</span><span style="font-size:16px;color:'+(urg?"#f87171":T.sub)+'" > 分</span></div>'
+    +'<div style="font-size:12px;color:'+T.sub+';margin-top:3px">'+ft(nx.times[S.ti])+'着'+(nx.rt?' <span style="color:#22c55e;font-size:10px">GPS</span>':'')+'</div>'
+    +dl+'</div>'
+    +'<div style="text-align:right"><div style="font-size:11px;color:'+T.sub+';margin-bottom:3px">乗車停留所</div>'
+    +'<div style="font-size:14px;font-weight:700;color:'+(urg?"#fca5a5":T.acc)+';max-width:120px;text-align:right;line-height:1.4">'+(S.route.stops[S.ti]?e(S.route.stops[S.ti].name):"")+'</div>'
+    +'</div></div>'
+    +'<div style="margin-top:12px;background:rgba(0,0,0,0.15);border-radius:5px;height:5px;overflow:hidden">'
+    +'<div style="width:'+Math.max(3,(nx.pos/(S.route.stops.length-1))*100)+'%;height:100%;background:'+(urg?"linear-gradient(to right,#ef4444,#f97316)":"linear-gradient(to right,#22c55e,"+T.acc+")")+';border-radius:5px;transition:width 0.8s ease"></div>'
+    +'</div>'
+    +'<div style="display:flex;justify-content:space-between;font-size:10px;color:'+T.sub+';margin-top:3px">'
+    +'<span>'+(S.route.stops[0]?e(S.route.stops[0].name):"")+'</span><span>'+(S.route.stops[S.route.stops.length-1]?e(S.route.stops[S.route.stops.length-1].name):"")+'</span></div></div>';
+  }else{
+    // 運行なし → 次の便を表示
+    var nextStr="";
+    if(nextInfo){
+      nextStr='<div style="font-size:13px;color:'+T.acc+';margin-top:8px;font-weight:600">'
+      +(nextInfo.isToday?"本日":"翌日")+'の次の便: '+ft(nextInfo.time)+'着予定'
+      +'<div style="font-size:11px;color:'+T.sub+';font-weight:400;margin-top:2px">約'+Math.ceil(nextInfo.mtt/60)+'時間'+Math.round(nextInfo.mtt%60)+'分後</div>'
+      +'</div>';
+    }
+    html+='<div style="background:'+T.card+';border-radius:20px;padding:22px;border:1px solid '+T.border+';margin-bottom:14px;text-align:center">'
+    +'<div style="font-size:28px;margin-bottom:8px">'+T.icon+'</div>'
+    +'<div style="font-size:14px;color:'+T.sub+'">現在、運行時間外です</div>'
+    +nextStr
+    +(S.route.timetable?'<div style="font-size:11px;color:'+T.sub+';margin-top:8px">上の「📋 時刻表」で詳細を確認できます</div>':"")
+    +'</div>';
+  }
+
+  // タイムライン
+  html+='<div style="background:'+T.card+';border-radius:16px;padding:14px 12px;border:1px solid '+T.border+';margin-bottom:14px">'
+  +'<div style="font-size:11px;color:'+T.sub+';margin-bottom:10px;padding-left:6px;display:flex;justify-content:space-between">'
+  +'<span>バスの現在位置'+(buses[0]&&buses[0].rt?' <span style="color:#22c55e">GPS</span>':' <span style="color:'+T.sub+'">推定</span>')+'</span>'
+  +(nai!==null&&S.route.stops[nai]?'<span style="color:#a78bfa;font-size:11px">🔔 '+e(S.route.stops[nai].name)+'</span>':"")
+  +'</div>'
+  +'<div style="position:relative;padding-left:10px">'
+  +'<div style="position:absolute;left:18px;top:6px;bottom:6px;width:2px;background:'+T.border+';border-radius:2px"></div>';
+  if(p0>=0)html+='<div style="position:absolute;left:18px;top:6px;height:'+Math.min(p0,S.route.stops.length-1)/(S.route.stops.length-1)*100+'%;width:2px;background:linear-gradient(to bottom,#22c55e,'+T.acc+');border-radius:2px;transition:height 0.8s ease"></div>';
+  S.route.stops.forEach(function(s,i){
+    var passed=i<p0-0.3,isTgt=i===S.ti,isNot=i===nai,isBus=Math.abs(i-p0)<0.7;
+    var col=isBus?"#facc15":isTgt?T.acc:isNot?"#a78bfa":passed?"#22c55e":T.border;
+    html+='<div style="display:flex;align-items:center;margin-bottom:'+(i<S.route.stops.length-1?"10px":"0")+';opacity:'+(passed&&!isTgt&&!isNot?"0.3":"1")+'">'
+    +'<div style="width:14px;height:14px;border-radius:50%;background:'+col+';border:2px solid '+T.bg+';flex-shrink:0;z-index:1;box-shadow:'+(isBus||isTgt?"0 0 10px "+col:"none")+'"></div>'
+    +'<div style="margin-left:12px;font-size:'+(isTgt?"14px":"12px")+';font-weight:'+(isTgt||isBus?"700":"400")+';color:'+(isBus?"#facc15":isTgt?T.acc:isNot?"#a78bfa":passed?T.sub:T.text)+';display:flex;align-items:center;gap:5px;flex-wrap:wrap">'
+    +e(s.name)
+    +(isTgt?'<span style="background:'+T.acc+'22;color:'+T.acc+';border:1px solid '+T.acc+'44;border-radius:5px;padding:1px 5px;font-size:10px">乗車</span>':"")
+    +(isNot&&!isTgt?'<span style="background:#a78bfa22;color:#a78bfa;border:1px solid #a78bfa44;border-radius:5px;padding:1px 5px;font-size:10px">通知</span>':"")
+    +(isBus?"🚌":"")
+    +'</div></div>';
+  });
+  html+='</div></div>';
+
+  html+='<button onclick="S.ss=!S.ss;render()" class="btn" style="width:100%;padding:11px;background:'+T.card+';border:1px solid '+T.border+';border-radius:12px;color:'+T.sub+';font-size:13px;margin-bottom:'+(S.ss?"0":"4px")+'">⚙️ 通知設定 '+(S.ss?"▲":"▼")+'</button>';
+  if(S.ss){
+    html+='<div style="margin-top:14px">'
+    +'<div style="background:'+T.card+';border-radius:14px;padding:16px;border:1px solid '+T.border+';margin-bottom:14px">'
+    +'<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:'+T.text+'">🎯 乗車停留所</div>'
+    +'<div style="display:flex;flex-direction:column;gap:5px">';
+    S.route.stops.forEach(function(s,i){
+      html+='<button onclick="S.ti='+i+';S.nids=[];sv({route:S.route,ti:'+i+',gurl:S.gurl,rid:S.rid,hasRT:S.hasRT,nm:S.nm,ns:S.ns,nm2:S.nm2});render()" style="padding:8px 12px;background:'+(S.ti===i?T.acc+"22":T.bg)+';border:1px solid '+(S.ti===i?T.acc:T.border)+';border-radius:8px;color:'+(S.ti===i?T.acc:T.sub)+';text-align:left;font-size:13px;cursor:pointer;font-family:inherit">'
+      +'<span style="opacity:0.4;margin-right:6px;font-size:10px">'+(i+1)+'</span>'+e(s.name)+'</button>';
+    });
+    html+='</div></div>'
+    +'<div style="background:'+T.card+';border-radius:14px;padding:16px;border:1px solid '+T.border+';margin-bottom:14px">'
+    +'<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:'+T.text+'">🔔 通知タイミング</div>'
+    +'<div style="display:flex;background:'+T.bg+';border-radius:10px;padding:3px;margin-bottom:10px">'
+    +'<button onclick="S.nm=\'stops\';render()" style="flex:1;padding:7px;border:none;border-radius:8px;background:'+(S.nm==="stops"?T.acc:"none")+';color:'+(S.nm==="stops"?"white":T.sub)+';font-size:12px;cursor:pointer;font-family:inherit">何つ前の停留所</button>'
+    +'<button onclick="S.nm=\'minutes\';render()" style="flex:1;padding:7px;border:none;border-radius:8px;background:'+(S.nm==="minutes"?T.acc:"none")+';color:'+(S.nm==="minutes"?"white":T.sub)+';font-size:12px;cursor:pointer;font-family:inherit">何分前</button>'
+    +'</div>';
+    if(S.nm==="stops"){
+      html+='<div style="display:flex;justify-content:space-between;font-size:12px;color:'+T.sub+';margin-bottom:5px"><span>前の停留所数</span><span style="color:'+T.acc+';font-weight:700">'+S.ns+'つ前</span></div>'
+      +'<input type="range" style="accent-color:'+T.acc+'" min="1" max="'+Math.min(5,S.ti||5)+'" value="'+S.ns+'" onchange="S.ns=+this.value;render()" oninput="S.ns=+this.value;render()">'
+      +'<div style="margin-top:8px;background:'+T.bg+';border-radius:8px;padding:7px 10px;font-size:12px;color:'+T.sub+'">📍 <span style="color:#a78bfa">'+(S.route.stops[Math.max(0,S.ti-S.ns)]?e(S.route.stops[Math.max(0,S.ti-S.ns)].name):"")+'</span></div>';
+    }else{
+      html+='<div style="display:flex;justify-content:space-between;font-size:12px;color:'+T.sub+';margin-bottom:5px"><span>到着前の分数</span><span style="color:'+T.acc+';font-weight:700">'+S.nm2+'分前</span></div>'
+      +'<input type="range" style="accent-color:'+T.acc+'" min="1" max="15" value="'+S.nm2+'" onchange="S.nm2=+this.value;render()" oninput="S.nm2=+this.value;render()">';
+    }
+    html+='</div>'
+    +'<button onclick="if(window.Notification)Notification.requestPermission()" class="btn" style="width:100%;padding:11px;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white;margin-bottom:8px">🔔 スマホ通知を許可する</button>';
+    if(S.rid)html+='<button onclick="drt()" class="btn" style="width:100%;padding:11px;background:'+T.card+';border:1px solid '+T.border+';color:'+T.acc+';margin-bottom:8px">🔃 位置情報を今すぐ更新</button>';
+    html+='</div>';
+  }
+  app.innerHTML=html;
 }
-}
-try{["buskuru","buskuru2","buskuru3","buskuru4","bk5","bk6","bk7
-try{["buskuru","buskuru2","buskuru3","buskuru4","bk5","bk6","bk7","bk8"].forEach(fun","bk8"].forEach(function(k){localStorage.removeItem(k);});}catch(x){}ction(k){localStorage.removeItem(k);});}catch(x){}
-var cfg=lv();
+
+try{["buskuru","buskuru2","buskuru3","buskuru4","bk5","bk6","bk7","bk8"].forEach(function(k){localStorage.removeItem(k);});}catch(x){}
 var cfg=lv();
 if(cfg&&cfg.route){
-if(cfg&&cfg.route){
-S.route=cfg.route;S.ti=cfg.ti||0;S.route=cfg.route;S.ti=cfg.ti||0;
-S.gurl=cfg.gurl||null;S.rid=cfg.rid||null;S.hasRT=cfg.hasRT||false;S.gurl=cfg.gurl||null;S.rid=cfg.rid||null;S.hasRT=cfg.hasRT||false;
-S.nm=cfg.nm||"stops";S.ns=cfg.ns||2;S.nm2=cfg.nm2||5;S.nm=cfg.nm||"stops";S.ns=cfg.ns||2;S.nm2=cfg.nm2||5;
-S.scr="monitor";if(S.rid)srt();S.scr="monitor";if(S.rid)srt();
-}
+  S.route=cfg.route;S.ti=cfg.ti||0;
+  S.gurl=cfg.gurl||null;S.rid=cfg.rid||null;S.hasRT=cfg.hasRT||false;
+  S.nm=cfg.nm||"stops";S.ns=cfg.ns||2;S.nm2=cfg.nm2||5;
+  S.scr="monitor";if(S.rid)srt();
 }
 render();
-render();
-</script>
 </script>
 </body>
-</body>
-</html>
 </html>
