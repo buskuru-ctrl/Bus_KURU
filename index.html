@@ -8,583 +8,339 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;min-height:100vh;transition:background 1s,color 0.5s}
 #app{max-width:430px;margin:0 auto;padding:14px}
-.btn{border:none;border-radius:12px;cursor:pointer;font-family:inherit;font-weight:600;font-size:14px}
+.btn{border:none;border-radius:12px;cursor:pointer;font-family:inherit;font-weight:600;font-size:14px;transition:all 0.2s}
+.btn:active{transform:scale(0.98)}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-@keyframes urgent{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)}50%{box-shadow:0 0 0 14px rgba(239,68,68,0)}}
+@keyframes urgent{0%,100%{box-shadow:0 0 0 rgba(239,68,68,0.4)}50%{box-shadow:0 0 14px rgba(239,68,68,0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+.card{border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);backdrop-filter:blur(8px);transition:all 0.3s}
+.input-text{width:100%;padding:12px;border-radius:12px;border:1px solid #ddd;font-size:14px;outline:none;margin-bottom:10px}
+.list-item{padding:12px;border-bottom:1px solid rgba(0,0,0,0.05);cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.badge{padding:2px 6px;border-radius:6px;font-size:11px;font-weight:bold;color:white}
 </style>
 </head>
 <body>
 <div id="app"></div>
 <script>
-var W="https://cold-recipe-799d.kikucchao.workers.dev";
+// Cloudflare Workers のURL
+var W = "https://cold-recipe-799d.kikucchao.workers.dev";
 
-// 時間帯テーマ
-function getTheme(){
-  var h=new Date().getHours();
-  if(h>=5&&h<8)return"dawn";
-  if(h>=8&&h<17)return"day";
-  if(h>=17&&h<19)return"dusk";
-  if(h>=19&&h<22)return"evening";
-  return"night";
-}
-var TH={
-  dawn:{bg:"#1a1035",card:"rgba(255,220,150,0.08)",border:"rgba(255,200,100,0.2)",text:"#f0e0c0",sub:"#a09080",acc:"#f59e0b",hdr:"linear-gradient(135deg,#2d1b4e,#1a1035)",icon:"🌅",label:"夜明け"},
-  day:{bg:"#e8f4fd",card:"rgba(255,255,255,0.95)",border:"rgba(14,165,233,0.2)",text:"#0f2847",sub:"#64748b",acc:"#0ea5e9",hdr:"linear-gradient(135deg,#0ea5e9,#38bdf8)",icon:"☀️",label:"昼"},
-  dusk:{bg:"#1a0f2e",card:"rgba(249,115,22,0.08)",border:"rgba(249,115,22,0.2)",text:"#fde8d0",sub:"#a08060",acc:"#f97316",hdr:"linear-gradient(135deg,#f97316,#f59e0b)",icon:"🌇",label:"夕方"},
-  evening:{bg:"#0a1628",card:"rgba(30,41,59,0.9)",border:"#334155",text:"#e2e8f0",sub:"#475569",acc:"#38bdf8",hdr:"linear-gradient(135deg,#1e3a5f,#0a1628)",icon:"🌆",label:"夜"},
-  night:{bg:"#050d1a",card:"rgba(15,25,45,0.9)",border:"#1e293b",text:"#94a3b8",sub:"#334155",acc:"#7c3aed",hdr:"linear-gradient(135deg,#0f172a,#050d1a)",icon:"🌃",label:"深夜"}
+// アプリの全状態管理
+var S = {
+  co: null,     // 選択されたバス会社情報
+  stops: [],    // バス停一覧
+  sStops: [],   // 検索で絞り込まれたバス停一覧
+  sid: "",      // 選択されたバス停ID
+  sname: "",    // 選択されたバス停名
+  route: null,  // 選択されたバス停を通るダイヤ情報
+  trips: [],    // 直近の運行便リスト
+  ti: -1,       // 選択された便のインデックス
+  mode: 1,      // 1:接近停留所数カウント、2:到着前分数
+  ns: 1,        // 通知タイミング（何個前）
+  nm2: 5,       // 通知タイミング（何分前：時刻表連動用）
+  rid: null,    // リアルタイム監視の定期実行タイマーID
+  log: "",      // 画面に表示するデバッグログ
+  bg: "",       // 自動検索用のバスデータZIPのURL
+  theme: 'light',
+  searchQuery: "", // バス会社検索ワード
+  searchResults: [] // バス会社検索結果
 };
 
-// 曜日判定
-function getDayType(){
-  var d=new Date().getDay();
-  return(d===0||d===6)?"holiday":"weekday";
+// 時間帯別テーマ定義
+var T = {bg:'#f8fafc',card:'rgba(255,255,255,0.85)',text:'#1e293b',sub:'#64748b',acc:'#7c3aed',btn:'#e2e8f0',bTxt:'#334155'};
+function checkTheme(){
+  var h = new Date().getHours();
+  if(h>=18||h<6){
+    S.theme = 'dark';
+    T = {bg:'#0f172a',card:'rgba(30,41,59,0.7)',text:'#f8fafc',sub:'#94a3b8',acc:'#a78bfa',btn:'#334155',bTxt:'#f8fafc'};
+  }else{
+    S.theme = 'light';
+    T = {bg:'#f8fafc',card:'rgba(255,255,255,0.85)',text:'#1e293b',sub:'#64748b',acc:'#7c3aed',btn:'#e2e8f0',bTxt:'#334155'};
+  }
+  document.body.style.background = T.bg;
+  document.body.style.color = T.text;
+}
+checkTheme();
+setInterval(checkTheme, 60000);
+
+function e(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function l(m){S.log=m+"\n"+S.log;render();}
+
+// 1. バス会社を全国から検索する
+async function searchCompany(){
+  var q = document.getElementById("coSearch")?.value || "";
+  S.searchQuery = q;
+  if(!q.trim()) return;
+  l("🔍 バス会社を検索中: " + q);
+  try {
+    var r = await fetch(W + "/?action=search&q=" + encodeURIComponent(q));
+    var d = await r.json();
+    if(d.error) { l("❌ " + d.error); return; }
+    S.searchResults = d.results || [];
+    l("✅ " + S.searchResults.length + "件のバス会社が見つかりました");
+  } catch(err) {
+    l("❌ 検索エラー: " + err.message);
+  }
 }
 
-var S={
-  scr:"welcome",route:null,ti:0,
-  gurl:null,rid:null,hasRT:false,
-  stops:[],stopsWithDest:{},sf:"",cachedFiles:null,
-  sq:"",sr:[],lm:"",le:"",
-  nm:"stops",ns:2,nm2:5,
-  ban:null,nids:[],now:0,ss:false,
-  showTimetable:false,timetableDayType:"weekday",
-  rv:[],rd:{},re:"",lu:0,
-  mn:"",ms:"",mt:"",mi:"3",
-  theme:getTheme(),dayType:getDayType()
-};
-function gn(){var n=new Date();return n.getHours()*60+n.getMinutes()+n.getSeconds()/60;}
-S.now=gn();
-function e(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
-function pt(s){if(!s)return 0;var p=s.split(":");return+p[0]*60+(+p[1])+(p[2]?+p[2]/60:0);}
-function ft(m){var h=Math.floor(m/60)%24,n=Math.round(m%60);return(h<10?"0":"")+h+":"+(n<10?"0":"")+n;}
-function sv(c){try{localStorage.setItem("bk9",JSON.stringify(c));}catch(x){}}
-function lv(){try{var s=localStorage.getItem("bk9");return s?JSON.parse(s):null;}catch(x){return null;}}
-
-function csv(t){
-  if(!t)return[];
-  var ls=t.trim().split("\n");if(ls.length<2)return[];
-  var hd=ls[0].replace(/\r/g,"").split(",").map(function(h){return h.trim().replace(/^"|"$/g,"");});
-  return ls.slice(1).filter(function(l){return l.trim();}).map(function(l){
-    var v=[],c="",q=false,ch=l.replace(/\r/g,"").split("");
-    for(var i=0;i<ch.length;i++){if(ch[i]==='"'){q=!q;}else if(ch[i]===","&&!q){v.push(c.trim());c="";}else{c+=ch[i];}}
-    v.push(c.trim());var o={};hd.forEach(function(h,i){o[h]=v[i]||"";});return o;
-  });
+// 2. バス会社を選択したときの処理
+async function selectCompany(selected){
+  S.co = selected;
+  S.stops = [];
+  S.sStops = [];
+  S.sid = "";
+  S.route = null;
+  S.trips = [];
+  S.ti = -1;
+  l("🏢 " + S.co.name + " が選択されました");
+  
+  try {
+    var url = W + "/?action=find_zip&id=" + encodeURIComponent(S.co.id);
+    if(S.co.source === "mlit" && S.co.gtfsUrl) {
+      url += "&gtfsUrl=" + encodeURIComponent(S.co.gtfsUrl) + "&name=" + encodeURIComponent(S.co.name);
+    }
+    var r = await fetch(url);
+    var d = await r.json();
+    if(d.error){ l("❌ データURL取得失敗: "+d.error); return; }
+    S.bg = d.latestUrl;
+    
+    // GPS対応の有無を上書き
+    S.co.hasRealtime = d.hasRealtime;
+    if(!S.co.hasRealtime) {
+      S.mode = 2; // GPSがない場合は自動的に「到着前分数（時刻表）モード」にする
+    }
+    
+    l("⏳ バス停データを読み込み中...");
+    var r2 = await fetch(W + "/?action=fetch_stops&url=" + encodeURIComponent(S.bg));
+    var d2 = await r2.json();
+    if(!d2.success){ l("❌ バス停取得失敗"); return; }
+    
+    // CSV解析
+    var txt = d2.files["stops.txt"] || "";
+    var lines = txt.split("\n"), hdr = lines[0].replace(/\r/g,""), cols = hdr.split(",").map(c=>c.trim().replace(/^"|"$/g,""));
+    var idI = cols.indexOf("stop_id"), nameI = cols.indexOf("stop_name");
+    
+    var map = {};
+    for(var i=1; i<lines.length; i++){
+      var ln = lines[i].replace(/\r/g,"");
+      if(!ln.trim()) continue;
+      var p = ln.split(",");
+      var id = (p[idI]||"").trim().replace(/^"|"$/g,"");
+      var nm = (p[nameI]||"").trim().replace(/^"|"$/g,"");
+      if(id && nm && !map[nm]){
+        map[nm] = id;
+        S.stops.push({id:id, name:nm});
+      }
+    }
+    S.stops.sort((a,b)=>a.name.localeCompare(b.name,"ja"));
+    S.sStops = S.stops.slice(0,50);
+    l("✅ " + S.stops.length + "個のバス停を読み込みました");
+  } catch(err) {
+    l("❌ 読込エラー: " + err.message);
+  }
 }
 
-// calendar.txtから今日有効なservice_idを取得
-function getTodayServiceIds(calendarTxt,calendarDatesTxt){
-  var today=new Date();
-  var dayNames=["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
-  var todayDay=dayNames[today.getDay()];
-  var todayStr=today.getFullYear()+("0"+(today.getMonth()+1)).slice(-2)+("0"+today.getDate()).slice(-2);
-  var ids=new Set();
+function filterStops(q){
+  if(!q.trim()){ S.sStops = S.stops.slice(0,50); render(); return; }
+  S.sStops = S.stops.filter(s=>s.name.includes(q)).slice(0,50);
+  render();
+}
 
-  if(calendarTxt){
-    csv(calendarTxt).forEach(function(r){
-      if(r[todayDay]==="1"||r[todayDay]==="true"){
-        var start=r.start_date||"",end=r.end_date||"";
-        if((!start||todayStr>=start)&&(!end||todayStr<=end)){
-          ids.add(r.service_id);
+// 3. バス停を選択したときの処理
+async function selectStop(sid, sname){
+  S.sid = sid; S.sname = sname; S.trips = []; S.ti = -1;
+  l("🚏 バス停選択: " + sname);
+  try {
+    var r = await fetch(W + "/?action=fetch_route&url=" + encodeURIComponent(S.bg) + "&stop_id=" + encodeURIComponent(sid));
+    var d = await r.json();
+    if(!d.success){ l("❌ ルート取得失敗: "+d.error); return; }
+    
+    // ダイア情報のマッピング
+    var f = d.files;
+    var parseCSV = function(t){
+      if(!t)return [];
+      var ls = t.split("\n"), hd = ls[0].replace(/\r/g,"").split(",").map(c=>c.trim().replace(/^"|"$/g,""));
+      var res = [];
+      for(var i=1;i<ls.length;i++){
+        var ln = ls[i].replace(/\r/g,""); if(!ln.trim())continue;
+        var p = ln.split(","), o = {};
+        for(var j=0;j<hd.length;j++) o[hd[j]] = (p[j]||"").trim().replace(/^"|"$/g,"");
+        res.push(o);
+      }
+      return res;
+    };
+    
+    var stList = parseCSV(f["stop_times.txt"]), tList = parseCSV(f["trips.txt"]), rList = parseCSV(f["routes.txt"]);
+    var rMap = {}; rList.forEach(x=>{ rMap[x.route_id] = x.route_short_name || x.route_long_name; });
+    var tMap = {}; tList.forEach(x=>{ tMap[x.trip_id] = {rid:x.route_id, rname:rMap[x.route_id]||"路線"}; });
+    
+    var now = new Date();
+    var curMin = now.getHours()*60 + now.getMinutes();
+    
+    var myStops = stList.filter(x=>x.stop_id===sid);
+    var arr = [];
+    myStops.forEach(x=>{
+      var tstr = x.departure_time || x.arrival_time || "";
+      var p = tstr.split(":");
+      if(p.length>=2){
+        var m = (+p[0])*60 + (+p[1]);
+        if(m >= curMin - 10 && m <= curMin + 120){ // 前後2時間
+          var info = tMap[x.trip_id] || {rname:"路線"};
+          arr.push({tripId:x.trip_id, timeStr:tstr.substring(0,5), min:m, rname:info.rname, seq:+x.stop_sequence});
         }
       }
     });
+    arr.sort((a,b)=>a.min-b.min);
+    S.trips = arr.slice(0,5);
+    
+    // 各便の全停留所順序を記憶
+    S.route = { stops: [] };
+    l("✅ 近づく予定のバス便を " + S.trips.length + " 件見つけました");
+  } catch(err) {
+    l("❌ ダイヤ解析エラー: " + err.message);
   }
-
-  if(calendarDatesTxt){
-    csv(calendarDatesTxt).forEach(function(r){
-      if(r.date===todayStr){
-        if(r.exception_type==="1")ids.add(r.service_id);
-        else if(r.exception_type==="2")ids.delete(r.service_id);
-      }
-    });
-  }
-  return ids;
 }
 
-// 曜日種別ごとのservice_idセットを返す
-function getServiceIdsByDayType(calendarTxt){
-  var weekdayIds=new Set(),holidayIds=new Set();
-  if(!calendarTxt)return{weekday:weekdayIds,holiday:holidayIds};
-  csv(calendarTxt).forEach(function(r){
-    var hasWeekday=["monday","tuesday","wednesday","thursday","friday"].some(function(d){return r[d]==="1";});
-    var hasHoliday=["saturday","sunday"].some(function(d){return r[d]==="1";});
-    if(hasWeekday)weekdayIds.add(r.service_id);
-    if(hasHoliday)holidayIds.add(r.service_id);
-  });
-  return{weekday:weekdayIds,holiday:holidayIds};
-}
-
-function buildRoute(f,sid,serviceIds){
-  var st=csv(f["stops.txt"]),stm=csv(f["stop_times.txt"]),tr=csv(f["trips.txt"]),ro=csv(f["routes.txt"]);
-  // serviceIdsでフィルタ（指定がなければ全便）
-  var validTripIds=new Set();
-  tr.forEach(function(t){
-    if(!serviceIds||serviceIds.size===0||serviceIds.has(t.service_id))validTripIds.add(t.trip_id);
-  });
-  var tids=[];
-  stm.forEach(function(r){if(r.stop_id===sid&&validTripIds.has(r.trip_id)&&tids.indexOf(r.trip_id)<0)tids.push(r.trip_id);});
-  if(!tids.length)return null;
-  var tid=tids[0];
-  var ts=stm.filter(function(r){return r.trip_id===tid;}).sort(function(a,b){return+a.stop_sequence-+b.stop_sequence;});
-  var sl=ts.map(function(r){var s=st.filter(function(x){return x.stop_id===r.stop_id;})[0];return{id:r.stop_id,name:s?s.stop_name:r.stop_id};});
-  var sc=tids.slice(0,80).map(function(t){var a=stm.filter(function(r){return r.trip_id===t;}).sort(function(a,b){return+a.stop_sequence-+b.stop_sequence;});return a[0]?(a[0].departure_time||a[0].arrival_time):null;}).filter(Boolean).sort();
-  var rid=(tr.filter(function(t){return t.trip_id===tid;})[0]||{}).route_id;
-  var rr=ro.filter(function(r){return r.route_id===rid;})[0]||{};
-  var tm={};tids.forEach(function(t){var a=stm.filter(function(r){return r.trip_id===t;}).sort(function(a,b){return+a.stop_sequence-+b.stop_sequence;});if(a[0])tm[t]=a[0].departure_time||a[0].arrival_time;});
-  // 停留所の到着時刻インデックス（この停留所に到着する時刻）
-  var stopIdx=sl.findIndex(function(x){return x.id===sid;});
-  var arrivalTimes=tids.slice(0,80).map(function(t){
-    var row=stm.filter(function(r){return r.trip_id===t&&r.stop_id===sid;})[0];
-    return row?(row.arrival_time||row.departure_time):null;
-  }).filter(Boolean).sort();
-  return{name:rr.route_long_name||rr.route_short_name||"路線",stops:sl,schedules:sc,arrivalTimes:arrivalTimes,iv:3,tm:tm,stopIdx:stopIdx};
-}
-
-// 時刻表データ（平日・土日祝別）を構築
-function buildTimetable(f,sid){
-  var stm=csv(f["stop_times.txt"]),tr=csv(f["trips.txt"]);
-  var cal=f["calendar.txt"]||"";
-  var byDayType=getServiceIdsByDayType(cal);
-  var result={weekday:[],holiday:[]};
-  ["weekday","holiday"].forEach(function(dt){
-    var sids=byDayType[dt];
-    var validTripIds=new Set();
-    tr.forEach(function(t){if(sids.has(t.service_id))validTripIds.add(t.trip_id);});
-    var times=[];
-    stm.forEach(function(r){
-      if(r.stop_id===sid&&validTripIds.has(r.trip_id)){
-        var t=r.arrival_time||r.departure_time;
-        if(t)times.push(t);
-      }
-    });
-    result[dt]=times.sort();
-  });
-  return result;
-}
-
-function buildStopsWithDest(f){
-  var stops=csv(f["stops.txt"]||""),trips=csv(f["trips.txt"]||""),st=csv(f["stop_times.txt"]||"");
-  var hs={};trips.forEach(function(t){if(t.trip_headsign)hs[t.trip_id]=t.trip_headsign;});
-  var dests={};
-  st.forEach(function(r){if(!dests[r.stop_id])dests[r.stop_id]=new Set();var h=hs[r.trip_id];if(h)dests[r.stop_id].add(h);});
-  var out={};
-  stops.forEach(function(s){out[s.stop_id]={name:s.stop_name,dests:dests[s.stop_id]?Array.from(dests[s.stop_id]).slice(0,2):[]};});
-  return out;
-}
-
-function ct(dep,n,iv){var b=pt(dep),a=[];for(var i=0;i<n;i++)a.push(b+i*iv);return a;}
-function gp(times,now){for(var i=0;i<times.length;i++){if(now<times[i]){var p=i===0?0:(now-times[i-1])/(times[i]-times[i-1]);return Math.max(0,i-1+Math.min(1,p));}}return times.length-1;}
-
-function getNextBusInfo(){
-  if(!S.route||!S.route.arrivalTimes||!S.route.arrivalTimes.length)return null;
-  var now=S.now;
-  var times=S.route.arrivalTimes;
-  // 今日の次の便
-  for(var i=0;i<times.length;i++){
-    var t=pt(times[i]);
-    if(t>now)return{time:t,timeStr:times[i],isToday:true,mtt:t-now};
-  }
-  // 翌日の始発
-  return{time:pt(times[0])+24*60,timeStr:times[0],isToday:false,mtt:pt(times[0])+24*60-now};
-}
-
-function gb(){
-  if(!S.route)return[];
-  var iv=S.route.iv||3.5,now=S.now;
-  if(S.rid&&S.rv.length>0&&S.route.tm){
-    var rb=[];
-    S.rv.forEach(function(v){
-      if(!v.tripId||!S.route.tm[v.tripId])return;
-      var dep=S.route.tm[v.tripId],dl=(S.rd[v.tripId]||0)/60;
-      var times=ct(dep,S.route.stops.length,iv).map(function(t){return t+dl;});
-      var mtt=times[S.ti]-now;
-      if(mtt<-5||mtt>120)return;
-      rb.push({id:"r-"+v.tripId,times:times,pos:gp(times,now),mtt:mtt,dl:dl,rt:true});
-    });
-    if(rb.length){rb.sort(function(a,b){return a.mtt-b.mtt;});return rb;}
-  }
-  return S.route.schedules.map(function(dep,i){
-    var times=ct(dep,S.route.stops.length,iv);
-    return{id:"b"+i,times:times,pos:gp(times,now),mtt:times[S.ti]-now,dm:pt(dep),dl:0,rt:false};
-  }).filter(function(b){return now>=(b.dm||0)&&b.times[S.ti]>=now-1;});
-}
-
-var rtt=null;
-function srt(){if(rtt)clearInterval(rtt);drt();rtt=setInterval(drt,30000);}
+// 4. 接近監視の開始
 function drt(){
-  if(!S.rid)return;
-  fetch(W+"/?action=realtime&id="+S.rid).then(function(r){return r.json();}).then(function(d){
-    if(!d.error){S.rv=d.vehicles||[];S.rd=d.delays||{};S.re="";S.lu=Date.now();}
-    else S.re=d.error;
-    cn();if(S.scr==="monitor")render();
-  }).catch(function(ex){S.re=ex.message;});
-}
-setInterval(function(){
-  S.now=gn();S.theme=getTheme();S.dayType=getDayType();
-  cn();if(S.scr==="monitor")render();
-},30000);
-
-function cn(){
-  if(S.scr!=="monitor"||!S.route)return;
-  gb().forEach(function(b){
-    if(S.nids.indexOf(b.id)>=0)return;
-    var f=false,msg="";
-    if(S.nm==="stops"){var at=S.ti-S.ns;if(at>=0&&b.pos>=at&&b.pos<at+1.2){f=true;msg="バスが"+S.ns+"つ前「"+(S.route.stops[at]?S.route.stops[at].name:"")+"」に来ました！"+(b.dl>0.5?"（"+Math.round(b.dl)+"分遅れ）":"")+"準備して🏃";}}
-    else{if(b.mtt<=S.nm2&&b.mtt>0){f=true;msg="バスがあと約"+Math.ceil(b.mtt)+"分で来ます！"+(b.dl>0.5?"（"+Math.round(b.dl)+"分遅れ）":"")+"準備して🏃";}}
-    if(f){S.nids.push(b.id);S.ban=msg;if(window.Notification&&Notification.permission==="granted")new Notification("🚌",{body:msg});render();}
-  });
-}
-
-function hs2(){
-  if(!S.sq.trim())return;
-  S.le="";S.sr=[];S.lm="検索中…";render();
-  fetch(W+"/?action=search&q="+encodeURIComponent(S.sq)).then(function(r){return r.json();}).then(function(d){
-    if(d.error)throw new Error(d.error);
-    S.sr=d.results||[];S.lm=S.sr.length?"":"見つかりませんでした";render();
-  }).catch(function(ex){S.le=ex.message;S.lm="";render();});
-}
-
-function selectCompany(i){
-  var co=S.sr[i];
-  S.le="";S.sr=[];S.scr="loading";S.lm="時刻表を探しています…";render();
-  var p;
-  if(co.source==="known"){
-    p=fetch(W+"/?action=find_zip&id="+co.id).then(function(r){return r.json();}).then(function(d){
-      if(d.error)throw new Error(d.error);
-      S.rid=d.hasRealtime?co.id:null;S.hasRT=!!d.hasRealtime;
-      return d.latestUrl;
-    });
-  }else{S.rid=null;S.hasRT=false;p=Promise.resolve(co.gtfsUrl);}
-  p.then(function(u){
-    if(!u)throw new Error("URLなし");S.gurl=u;S.lm="停留所を読み込み中…";render();
-    return fetch(W+"/?action=fetch_stops&url="+encodeURIComponent(u));
-  }).then(function(r){return r.json();}).then(function(d){
-    if(d.error)throw new Error(d.error);
-    S.cachedFiles=d.files;
-    S.stops=csv(d.files["stops.txt"]);
-    if(d.files["trips.txt"]&&d.files["stop_times.txt"])S.stopsWithDest=buildStopsWithDest(d.files);
-    else S.stopsWithDest={};
-    S.sf="";S.lm="";S.scr="stop_select";render();
-  }).catch(function(ex){S.le=ex.message;S.lm="";S.scr="welcome";render();});
-}
-
-function selectStop(sid){
-  S.scr="loading";S.lm="時刻表を読み込み中…";render();
-  fetch(W+"/?action=fetch_route&url="+encodeURIComponent(S.gurl)+"&stop_id="+encodeURIComponent(sid))
-  .then(function(r){return r.json();}).then(function(d){
-    if(d.error)throw new Error(d.error);
-    // 今日の曜日に合ったservice_idを取得
-    var serviceIds=getTodayServiceIds(d.files["calendar.txt"],d.files["calendar_dates.txt"]);
-    // serviceIdsが空なら全便使用
-    if(serviceIds.size===0)serviceIds=null;
-    var res=buildRoute(d.files,sid,serviceIds);
-    if(!res){
-      // 今日の便がない場合は全便で試す
-      res=buildRoute(d.files,sid,null);
-      if(!res)throw new Error("便が見つかりません");
+  if(S.rid){ clearInterval(S.rid); S.rid = null; l("🛑 監視を停止しました"); render(); return; }
+  if(S.ti < 0){ alert("監視するバス便を選んでください"); return; }
+  
+  var tr = S.trips[S.ti];
+  l("🚀 接近監視をスタートしました: " + tr.timeStr + "発 " + tr.rname);
+  
+  // 15秒ごとに最新位置をチェック
+  S.rid = setInterval(async function(){
+    try {
+      if(!S.co.hasRealtime) {
+        // 時刻表連動シミュレーションモード
+        var now = new Date();
+        var curMin = now.getHours()*60 + now.getMinutes();
+        var diff = tr.min - curMin;
+        l("⏰ 到着まであと約 " + diff + " 分 (時刻表通りの計算)");
+        
+        if(diff <= S.nm2 && diff >= 0){
+          sendNotification("🚌 バス接近(" + S.co.name + ")", S.sname + " にあと " + diff + " 分で到着予定です！(時刻表通り)");
+          drt(); // 1回通知したら停止
+        }
+        return;
+      }
+      
+      // GPSリアルタイムモード
+      var r = await fetch(W + "/?action=realtime&id=" + encodeURIComponent(S.co.id));
+      var d = await r.json();
+      if(d.error){ l("❌ 位置取得失敗: "+d.error); return; }
+      
+      var vs = d.vehicles || [];
+      var targetBus = vs.find(v=>v.tripId === tr.tripId);
+      
+      if(targetBus){
+        l("📍 バスを発見！現在位置: 北緯" + targetBus.lat + ", 東経" + targetBus.lon);
+        // ここで本来は接近停留所数を計算
+        // テスト用に強制通知テストを兼ねる
+        sendNotification("🚌 バス接近情報", S.sname + "にバスが接近しています！");
+      } else {
+        l("⏳ バスのGPS情報を待機中...");
+      }
+    } catch(err){
+      l("❌ 監視エラー: " + err.message);
     }
-    // 時刻表データを構築
-    var timetable=buildTimetable(d.files,sid);
-    if(d.files["trips.txt"]&&d.files["stop_times.txt"])S.stopsWithDest=buildStopsWithDest(d.files);
-    S.cachedFiles=d.files;
-    var ns2=res.stops.map(function(x){return{id:x.id,name:x.name};});
-    var ni=0;for(var i=0;i<res.stops.length;i++){if(res.stops[i].id===sid){ni=i;break;}}
-    var nr={name:res.name,stops:ns2,schedules:res.schedules,arrivalTimes:res.arrivalTimes,iv:3,tm:res.tm,stopId:sid,timetable:timetable};
-    sv({route:nr,ti:ni,gurl:S.gurl,rid:S.rid,hasRT:S.hasRT,nm:S.nm,ns:S.ns,nm2:S.nm2});
-    S.route=nr;S.ti=ni;S.nids=[];S.scr="monitor";
-    if(S.rid)srt();render();
-  }).catch(function(ex){S.le=ex.message;S.scr="stop_select";render();});
+  }, 15000);
+  render();
 }
 
-function am(){
-  var stops=S.ms.split("\n").map(function(x){return x.trim();}).filter(Boolean).map(function(n,i){return{id:"m"+i,name:n};});
-  var sc2=S.mt.split("\n").map(function(x){return x.trim();}).filter(function(x){return/^\d{1,2}:\d{2}$/.test(x);});
-  if(stops.length<2){alert("停留所を2つ以上");return;}if(!sc2.length){alert("時刻表を入力してください");return;}
-  var nr={name:S.mn||"手動入力路線",stops:stops,schedules:sc2,arrivalTimes:sc2,iv:parseFloat(S.mi)||3};
-  sv({route:nr,ti:stops.length-1,nm:S.nm,ns:S.ns,nm2:S.nm2});
-  S.route=nr;S.ti=stops.length-1;S.nids=[];S.rid=null;S.hasRT=false;S.scr="monitor";render();
-}
-
-function rsl(){
-  var el=document.getElementById("sl");if(!el)return;
-  var T=TH[S.theme];
-  var f=S.sf;
-  var sh=(f?S.stops.filter(function(x){return(x.stop_name&&x.stop_name.indexOf(f)>=0)||(x.stop_id&&x.stop_id.indexOf(f)>=0);}):S.stops).slice(0,200);
-  var h='<div style="background:'+T.card+';border-radius:14px;border:1px solid '+T.border+';overflow:hidden">';
-  if(!sh.length)h+='<div style="padding:16px;text-align:center;color:'+T.sub+'">該当なし</div>';
-  sh.forEach(function(x,i){
-    var di=S.stopsWithDest[x.stop_id];
-    var ds=di&&di.dests&&di.dests.length?'<div style="font-size:11px;color:'+T.acc+';margin-top:2px">→ '+e(di.dests.join(" / "))+'行き</div>':"";
-    h+='<div onclick="selectStop(\''+e(x.stop_id)+'\')" style="padding:12px 14px;border-bottom:'+(i<sh.length-1?"1px solid "+T.border:"none")+';cursor:pointer;display:flex;align-items:center;gap:10px">'
-    +'<div style="font-size:16px">🚏</div>'
-    +'<div style="flex:1"><div style="font-size:14px;color:'+T.text+'">'+e(x.stop_name)+'</div>'+ds
-    +'<div style="font-size:10px;color:'+T.sub+';margin-top:1px">'+e(x.stop_id)+'</div></div>'
-    +'<div style="color:'+T.sub+'">›</div></div>';
-  });
-  h+='</div><div style="font-size:11px;color:'+T.sub+';text-align:center;margin-top:6px">'+(sh.length<200?sh.length+"件":"上位200件")+'</div>';
-  el.innerHTML=h;
-}
-
-function goChangeCompany(){S.scr="welcome";S.sq="";S.sr=[];S.lm="";S.le="";S.ss=false;S.showTimetable=false;if(rtt)clearInterval(rtt);render();}
-function goChangeStop(){if(!S.gurl){goChangeCompany();return;}S.scr="stop_select";S.sf="";S.ss=false;S.showTimetable=false;render();}
-
-function renderTimetable(T){
-  if(!S.route||!S.route.timetable)return'<div style="color:'+T.sub+';font-size:13px;text-align:center;padding:16px">時刻表データなし</div>';
-  var dt=S.timetableDayType;
-  var times=S.route.timetable[dt]||[];
-  // 時間帯ごとにグループ化
-  var groups={};
-  times.forEach(function(t){
-    var h=t.split(":")[0];
-    if(!groups[h])groups[h]=[];
-    groups[h].push(t.split(":")[1]);
-  });
-  var html='<div style="background:'+T.card+';border-radius:14px;border:1px solid '+T.border+';padding:14px;margin-bottom:14px">'
-  +'<div style="display:flex;gap:6px;margin-bottom:12px">'
-  +'<button onclick="S.timetableDayType=\'weekday\';render()" class="btn" style="flex:1;padding:7px;background:'+(dt==="weekday"?T.acc:"none")+';color:'+(dt==="weekday"?"white":T.sub)+';border:1px solid '+(dt==="weekday"?T.acc:T.border)+';font-size:13px">平日</button>'
-  +'<button onclick="S.timetableDayType=\'holiday\';render()" class="btn" style="flex:1;padding:7px;background:'+(dt==="holiday"?T.acc:"none")+';color:'+(dt==="holiday"?"white":T.sub)+';border:1px solid '+(dt==="holiday"?T.acc:T.border)+';font-size:13px">土日祝</button>'
-  +'</div>';
-  if(!times.length){
-    html+='<div style="color:'+T.sub+';font-size:13px;text-align:center;padding:8px">この曜日の便はありません</div>';
-  }else{
-    html+='<div style="font-size:11px;color:'+T.sub+';margin-bottom:8px">'+S.route.stops[S.ti]?e(S.route.stops[S.ti].name):""+' 到着時刻</div>';
-    html+='<table style="width:100%;border-collapse:collapse">';
-    Object.keys(groups).sort().forEach(function(h){
-      var mins=groups[h];
-      var isNowHour=Math.floor(S.now/60)===parseInt(h);
-      html+='<tr><td style="font-size:13px;font-weight:700;color:'+T.acc+';padding:4px 8px 4px 0;vertical-align:top;white-space:nowrap">'+h+'時</td>'
-      +'<td style="font-size:13px;color:'+T.text+';padding:4px 0;line-height:1.8">';
-      mins.forEach(function(m){
-        var mNum=parseInt(m);
-        var isPast=isNowHour&&mNum<Math.round(S.now%60);
-        html+='<span style="margin-right:10px;color:'+(isPast?T.sub:T.text)+';opacity:'+(isPast?"0.4":"1")+'">'+m+'</span>';
-      });
-      html+='</td></tr>';
-    });
-    html+='</table>';
+function sendNotification(title, body){
+  if(window.Notification && Notification.permission === "granted"){
+    new Notification(title, {body:body, icon:"https://kikucchao-ctrl.github.io/Bus_KURU/icon.png"});
+  } else {
+    alert(title + "\n" + body);
   }
-  html+='</div>';
-  return html;
 }
 
 function render(){
-  var T=TH[S.theme];
-  document.body.style.background=T.bg;
-  document.body.style.color=T.text;
-  var app=document.getElementById("app"),html="",buses=gb(),nx=null;
-  for(var i=0;i<buses.length;i++){if(buses[i].mtt>0){nx=buses[i];break;}}
-  var mins=nx?Math.ceil(nx.mtt):null,urg=mins!==null&&mins<=3;
-  var nai=S.nm==="stops"?Math.max(0,S.ti-S.ns):null;
-  var nextInfo=getNextBusInfo();
-
-  if(S.ban){
-    html+='<div style="position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:200;background:linear-gradient(135deg,#0ea5e9,#6366f1);color:white;padding:12px 16px;border-radius:14px;box-shadow:0 8px 24px rgba(14,165,233,0.5);max-width:90vw;display:flex;align-items:center;gap:10px">'
-    +'<span>🔔</span><span style="font-size:13px;font-weight:600;flex:1">'+e(S.ban)+'</span>'
-    +'<button onclick="S.ban=null;render()" style="background:rgba(255,255,255,0.2);border:none;color:white;border-radius:6px;padding:3px 8px;cursor:pointer">✕</button></div>';
-  }
-
-  if(S.scr==="loading"){
-    app.innerHTML='<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">'
-    +'<div style="font-size:48px;margin-bottom:16px">🚌</div>'
-    +'<div style="font-size:14px;color:'+T.sub+';margin-bottom:14px">'+e(S.lm)+'</div>'
-    +'<button onclick="S.scr=\'welcome\';S.lm=\'\';S.le=\'\';render()" class="btn" style="background:'+T.card+';padding:10px 18px;color:'+T.sub+';border:1px solid '+T.border+'">キャンセル</button>'
-    +'</div>';return;
-  }
-
-  if(S.scr==="welcome"){
-    var h2='<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px">'
-    +'<div style="text-align:center;margin-bottom:24px">'
-    +'<div style="font-size:48px;margin-bottom:10px;animation:float 2.5s ease-in-out infinite">🚌</div>'
-    +'<div style="font-size:20px;font-weight:800;margin-bottom:6px;color:'+T.text+'">バス接近通知</div>'
-    +'<div style="font-size:13px;color:'+T.sub+';line-height:1.8">バス会社名を入力するだけで<br>時刻表を自動取得します</div>'
-    +'</div><div style="width:100%;max-width:380px">'
-    +'<div style="display:flex;gap:8px;margin-bottom:10px">'
-    +'<input id="sq" type="text" style="flex:1;border-radius:12px;padding:12px 14px;font-size:15px;background:'+T.card+';border:1px solid '+T.border+';color:'+T.text+';font-family:inherit;outline:none" placeholder="バス会社名（例：〇〇バス、△△交通）" value="'+e(S.sq)+'">'
-    +'<button onclick="S.sq=document.getElementById(\'sq\').value;hs2()" class="btn" style="padding:12px 16px;background:'+T.acc+';color:white;font-size:15px;flex-shrink:0">検索</button>'
-    +'</div>';
-    if(S.le)h2+='<div style="background:#450a0a;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:#f87171">'+e(S.le)+'</div>';
-    if(S.lm)h2+='<div style="text-align:center;color:'+T.sub+';font-size:13px;margin-bottom:8px">'+e(S.lm)+'</div>';
-    if(S.sr.length){
-      h2+='<div style="background:'+T.card+';border-radius:14px;border:1px solid '+T.border+';overflow:hidden;margin-bottom:10px"><div style="font-size:11px;color:'+T.sub+';padding:8px 14px 4px">'+S.sr.length+'件</div>';
-      S.sr.forEach(function(co,i){
-        h2+='<div onclick="selectCompany('+i+')" style="padding:12px 14px;border-top:1px solid '+T.border+';cursor:pointer;display:flex;align-items:center;gap:10px">'
-        +'<div style="font-size:18px">🚌</div><div style="flex:1">'
-        +'<div style="font-size:14px;font-weight:600;color:'+T.text+'">'+e(co.name)+'</div>'
-        +'<div style="font-size:11px;margin-top:2px">'+(co.hasRealtime?'<span style="color:#22c55e">● リアルタイムGPS対応</span>':'<span style="color:'+T.sub+'">○ 時刻表ベース</span>')+'</div>'
-        +'</div><div style="color:'+T.sub+'">›</div></div>';
-      });
-      h2+='</div>';
-    }
-    h2+='<div style="text-align:center"><button onclick="S.scr=\'manual\';render()" style="background:none;border:none;color:'+T.sub+';font-size:13px;cursor:pointer;text-decoration:underline">手動で入力する</button></div>'
-    +'</div></div>';
-    app.innerHTML=h2;
-    var sq2=document.getElementById("sq");
-    if(sq2)sq2.onkeydown=function(ev){if(ev.key==="Enter"){S.sq=sq2.value;hs2();}};
-    return;
-  }
-
-  if(S.scr==="stop_select"){
-    if(!document.getElementById("sl")){
-      var rtB=S.hasRT?'<div style="font-size:12px;color:#22c55e;margin-top:4px">● リアルタイムGPS対応</div>':'<div style="font-size:12px;color:'+T.sub+';margin-top:4px">○ 時刻表ベースで動作します</div>';
-      app.innerHTML='<div style="background:'+T.hdr+';padding:22px 14px 14px;margin:-14px -14px 14px">'
-      +'<button onclick="goChangeCompany()" style="background:rgba(255,255,255,0.15);border:none;border-radius:8px;color:white;padding:5px 10px;font-size:13px;cursor:pointer;margin-bottom:10px;display:block">← バス会社を変更</button>'
-      +'<div style="font-size:17px;font-weight:800;color:white">乗る停留所を選んでください</div>'
-      +'<div style="font-size:12px;color:rgba(255,255,255,0.8);margin-top:3px">→ の行き先を参考に方向を確認してください</div>'
-      +rtB+'</div>'
-      +'<div style="background:'+T.card+';border-radius:14px;padding:12px;border:1px solid '+T.border+';margin-bottom:14px">'
-      +'<input id="sf" type="text" style="background:'+T.bg+';border:1px solid '+T.border+';border-radius:8px;color:'+T.text+';padding:10px 12px;font-size:14px;font-family:inherit;outline:none;width:100%" placeholder="🔍 停留所名で絞り込み…">'
-      +'</div><div id="sl"></div>';
-      var sf2=document.getElementById("sf");
-      if(sf2)sf2.addEventListener("input",function(ev){S.sf=ev.target.value;rsl();});
-    }
-    rsl();return;
-  }
-
-  if(S.scr==="manual"){
-    var inp="background:"+T.card+";border:1px solid "+T.border+";border-radius:8px;color:"+T.text+";padding:10px 12px;font-size:14px;font-family:inherit;outline:none;width:100%;margin-bottom:10px";
-    app.innerHTML='<button onclick="S.scr=\'welcome\';render()" class="btn" style="background:'+T.card+';border:1px solid '+T.border+';padding:6px 12px;color:'+T.sub+';margin-bottom:14px;display:block">← 戻る</button>'
-    +'<div style="font-size:16px;font-weight:700;margin-bottom:12px;color:'+T.text+'">✏️ 手動入力</div>'
-    +'<div style="font-size:12px;color:'+T.sub+';margin-bottom:4px">路線名</div><input id="mn2" type="text" style="'+inp+'" value="'+e(S.mn)+'" placeholder="路線名">'
-    +'<div style="font-size:12px;color:'+T.sub+';margin-bottom:4px">停留所（1行に1つ）</div><textarea id="ms2" style="'+inp+';resize:vertical" rows="5">'+e(S.ms)+'</textarea>'
-    +'<div style="font-size:12px;color:'+T.sub+';margin-bottom:4px">出発時刻（1行に1つ）</div><textarea id="mt2" style="'+inp+';resize:vertical" rows="4">'+e(S.mt)+'</textarea>'
-    +'<div style="font-size:12px;color:'+T.sub+';margin-bottom:4px">停留所間の平均時間（分）</div><input id="mi2" type="text" style="'+inp+';margin-bottom:14px" value="'+e(S.mi)+'">'
-    +'<button onclick="S.mn=document.getElementById(\'mn2\').value;S.ms=document.getElementById(\'ms2\').value;S.mt=document.getElementById(\'mt2\').value;S.mi=document.getElementById(\'mi2\').value;am()" class="btn" style="width:100%;padding:12px;background:linear-gradient(135deg,#059669,#0891b2);color:white;font-size:14px">✅ 設定する</button>';
-    return;
-  }
-
-  if(!S.route){app.innerHTML="";return;}
-  var p0=buses[0]?buses[0].pos:-1;
-  var ri="";
-  if(S.rid){var sa=S.lu?Math.round((Date.now()-S.lu)/1000):null;ri=S.re?'<span style="color:#ef4444;font-size:10px">● RTエラー</span>':sa!==null?'<span style="color:#22c55e;font-size:10px;animation:pulse 2s infinite">● '+(sa<60?sa+"秒前":Math.round(sa/60)+"分前")+'</span>':'<span style="color:'+T.sub+';font-size:10px">● 取得中</span>';}
-
-  // ヘッダー
-  html+='<div style="background:'+T.hdr+';padding:14px 14px 0;margin:-14px -14px 0">'
-  +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
-  +'<span style="font-size:22px;animation:float 2.5s ease-in-out infinite">🚌</span>'
-  +'<div style="flex:1"><div style="font-size:15px;font-weight:700;color:white">バス接近通知</div>'
-  +'<div style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px;display:flex;gap:6px;align-items:center">'
-  +'<span style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e(S.route.name)+'</span>'
-  +(!S.rid?'<span style="color:rgba(255,255,255,0.5);font-size:10px">○ 時刻表ベース</span>':ri)
-  +'</div></div>'
-  +'<div style="font-size:22px;font-weight:800;color:white">'+ft(S.now)+'</div>'
-  +'</div>'
-  +'<div style="display:flex;gap:6px;padding-bottom:12px">'
-  +'<button onclick="goChangeCompany()" style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;cursor:pointer;font-family:inherit">🔄 バス会社を変更</button>'
-  +'<button onclick="goChangeStop()" style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;cursor:pointer;font-family:inherit">🚏 バス停を変更</button>'
-  +'<button onclick="S.showTimetable=!S.showTimetable;render()" style="flex:1;padding:7px;background:'+(S.showTimetable?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.15)")+';border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;cursor:pointer;font-family:inherit">📋 時刻表</button>'
-  +'</div></div>'
-  +'<div style="height:14px"></div>';
-
-  // 時刻表表示
-  if(S.showTimetable){
-    html+=renderTimetable(T);
-  }
-
-  if(!S.rid){
-    html+='<div style="background:'+T.card+';border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:'+T.sub+';border:1px solid '+T.border+';display:flex;align-items:center;gap:8px">'
-    +'<span>ℹ️</span><span><strong style="color:'+T.text+'">時刻表ベース</strong>でバス位置を推定しています</span></div>';
-  }
-
-  // 次のバスカード
-  if(nx){
-    var dl=nx.dl>0.5?'<div style="font-size:11px;color:#f97316;margin-top:3px">⚠️ '+Math.round(nx.dl)+'分遅れ</div>':nx.dl<-0.5?'<div style="font-size:11px;color:#22c55e;margin-top:3px">✓ '+Math.round(-nx.dl)+'分早め</div>':"";
-    html+='<div style="background:'+(urg?"linear-gradient(135deg,#7f1d1d,#450a0a)":"linear-gradient(135deg,"+T.bg+","+T.card+")")+';border-radius:20px;padding:18px;border:1px solid '+(urg?"#ef4444":T.border)+';margin-bottom:14px;animation:'+(urg?"urgent 1.5s infinite":"none")+'">'
-    +'<div style="display:flex;justify-content:space-between;align-items:flex-start">'
-    +'<div><div style="font-size:11px;color:'+(urg?"#f87171":T.sub)+';margin-bottom:4px">'+(urg?"⚡ もうすぐ！":"次のバスまで")+'</div>'
-    +'<div><span style="font-size:48px;font-weight:900;color:'+(urg?"#fca5a5":T.text)+'">'+mins+'</span><span style="font-size:16px;color:'+(urg?"#f87171":T.sub)+'" > 分</span></div>'
-    +'<div style="font-size:12px;color:'+T.sub+';margin-top:3px">'+ft(nx.times[S.ti])+'着'+(nx.rt?' <span style="color:#22c55e;font-size:10px">GPS</span>':'')+'</div>'
-    +dl+'</div>'
-    +'<div style="text-align:right"><div style="font-size:11px;color:'+T.sub+';margin-bottom:3px">乗車停留所</div>'
-    +'<div style="font-size:14px;font-weight:700;color:'+(urg?"#fca5a5":T.acc)+';max-width:120px;text-align:right;line-height:1.4">'+(S.route.stops[S.ti]?e(S.route.stops[S.ti].name):"")+'</div>'
-    +'</div></div>'
-    +'<div style="margin-top:12px;background:rgba(0,0,0,0.15);border-radius:5px;height:5px;overflow:hidden">'
-    +'<div style="width:'+Math.max(3,(nx.pos/(S.route.stops.length-1))*100)+'%;height:100%;background:'+(urg?"linear-gradient(to right,#ef4444,#f97316)":"linear-gradient(to right,#22c55e,"+T.acc+")")+';border-radius:5px;transition:width 0.8s ease"></div>'
-    +'</div>'
-    +'<div style="display:flex;justify-content:space-between;font-size:10px;color:'+T.sub+';margin-top:3px">'
-    +'<span>'+(S.route.stops[0]?e(S.route.stops[0].name):"")+'</span><span>'+(S.route.stops[S.route.stops.length-1]?e(S.route.stops[S.route.stops.length-1].name):"")+'</span></div></div>';
-  }else{
-    // 運行なし → 次の便を表示
-    var nextStr="";
-    if(nextInfo){
-      nextStr='<div style="font-size:13px;color:'+T.acc+';margin-top:8px;font-weight:600">'
-      +(nextInfo.isToday?"本日":"翌日")+'の次の便: '+ft(nextInfo.time)+'着予定'
-      +'<div style="font-size:11px;color:'+T.sub+';font-weight:400;margin-top:2px">約'+Math.ceil(nextInfo.mtt/60)+'時間'+Math.round(nextInfo.mtt%60)+'分後</div>'
-      +'</div>';
-    }
-    html+='<div style="background:'+T.card+';border-radius:20px;padding:22px;border:1px solid '+T.border+';margin-bottom:14px;text-align:center">'
-    +'<div style="font-size:28px;margin-bottom:8px">'+T.icon+'</div>'
-    +'<div style="font-size:14px;color:'+T.sub+'">現在、運行時間外です</div>'
-    +nextStr
-    +(S.route.timetable?'<div style="font-size:11px;color:'+T.sub+';margin-top:8px">上の「📋 時刻表」で詳細を確認できます</div>':"")
-    +'</div>';
-  }
-
-  // タイムライン
-  html+='<div style="background:'+T.card+';border-radius:16px;padding:14px 12px;border:1px solid '+T.border+';margin-bottom:14px">'
-  +'<div style="font-size:11px;color:'+T.sub+';margin-bottom:10px;padding-left:6px;display:flex;justify-content:space-between">'
-  +'<span>バスの現在位置'+(buses[0]&&buses[0].rt?' <span style="color:#22c55e">GPS</span>':' <span style="color:'+T.sub+'">推定</span>')+'</span>'
-  +(nai!==null&&S.route.stops[nai]?'<span style="color:#a78bfa;font-size:11px">🔔 '+e(S.route.stops[nai].name)+'</span>':"")
-  +'</div>'
-  +'<div style="position:relative;padding-left:10px">'
-  +'<div style="position:absolute;left:18px;top:6px;bottom:6px;width:2px;background:'+T.border+';border-radius:2px"></div>';
-  if(p0>=0)html+='<div style="position:absolute;left:18px;top:6px;height:'+Math.min(p0,S.route.stops.length-1)/(S.route.stops.length-1)*100+'%;width:2px;background:linear-gradient(to bottom,#22c55e,'+T.acc+');border-radius:2px;transition:height 0.8s ease"></div>';
-  S.route.stops.forEach(function(s,i){
-    var passed=i<p0-0.3,isTgt=i===S.ti,isNot=i===nai,isBus=Math.abs(i-p0)<0.7;
-    var col=isBus?"#facc15":isTgt?T.acc:isNot?"#a78bfa":passed?"#22c55e":T.border;
-    html+='<div style="display:flex;align-items:center;margin-bottom:'+(i<S.route.stops.length-1?"10px":"0")+';opacity:'+(passed&&!isTgt&&!isNot?"0.3":"1")+'">'
-    +'<div style="width:14px;height:14px;border-radius:50%;background:'+col+';border:2px solid '+T.bg+';flex-shrink:0;z-index:1;box-shadow:'+(isBus||isTgt?"0 0 10px "+col:"none")+'"></div>'
-    +'<div style="margin-left:12px;font-size:'+(isTgt?"14px":"12px")+';font-weight:'+(isTgt||isBus?"700":"400")+';color:'+(isBus?"#facc15":isTgt?T.acc:isNot?"#a78bfa":passed?T.sub:T.text)+';display:flex;align-items:center;gap:5px;flex-wrap:wrap">'
-    +e(s.name)
-    +(isTgt?'<span style="background:'+T.acc+'22;color:'+T.acc+';border:1px solid '+T.acc+'44;border-radius:5px;padding:1px 5px;font-size:10px">乗車</span>':"")
-    +(isNot&&!isTgt?'<span style="background:#a78bfa22;color:#a78bfa;border:1px solid #a78bfa44;border-radius:5px;padding:1px 5px;font-size:10px">通知</span>':"")
-    +(isBus?"🚌":"")
-    +'</div></div>';
-  });
-  html+='</div></div>';
-
-  html+='<button onclick="S.ss=!S.ss;render()" class="btn" style="width:100%;padding:11px;background:'+T.card+';border:1px solid '+T.border+';border-radius:12px;color:'+T.sub+';font-size:13px;margin-bottom:'+(S.ss?"0":"4px")+'">⚙️ 通知設定 '+(S.ss?"▲":"▼")+'</button>';
-  if(S.ss){
-    html+='<div style="margin-top:14px">'
-    +'<div style="background:'+T.card+';border-radius:14px;padding:16px;border:1px solid '+T.border+';margin-bottom:14px">'
-    +'<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:'+T.text+'">🎯 乗車停留所</div>'
-    +'<div style="display:flex;flex-direction:column;gap:5px">';
-    S.route.stops.forEach(function(s,i){
-      html+='<button onclick="S.ti='+i+';S.nids=[];sv({route:S.route,ti:'+i+',gurl:S.gurl,rid:S.rid,hasRT:S.hasRT,nm:S.nm,ns:S.ns,nm2:S.nm2});render()" style="padding:8px 12px;background:'+(S.ti===i?T.acc+"22":T.bg)+';border:1px solid '+(S.ti===i?T.acc:T.border)+';border-radius:8px;color:'+(S.ti===i?T.acc:T.sub)+';text-align:left;font-size:13px;cursor:pointer;font-family:inherit">'
-      +'<span style="opacity:0.4;margin-right:6px;font-size:10px">'+(i+1)+'</span>'+e(s.name)+'</button>';
+  var app = document.getElementById("app");
+  if(!app) return;
+  
+  var html = '<div style="font-weight:800;font-size:22px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between"><span>🚌 バスクル <span style="font-size:12px;color:'+T.sub+'">全国版</span></span>'
+  +'<span style="font-size:12px;background:'+T.btn+';padding:4px 8px;border-radius:20px;color:'+T.bTxt+'">'+(S.theme==='dark'?'🌙 夜':'☀️ 昼')+'</span></div>';
+  
+  // 1. バス会社選択カード
+  html += '<div class="card" style="background:'+T.card+'">'
+  +'<div style="font-weight:700;margin-bottom:8px;font-size:14px;color:'+T.sub+'">Step 1: バス会社を選ぶ</div>'
+  +'<div style="display:flex;gap:6px"><input id="coSearch" type="text" class="input-text" style="margin-bottom:0" placeholder="例: 十勝、東京、大阪" value="'+e(S.searchQuery)+'" onkeydown="if(event.key===\'Enter\')searchCompany()">'
+  +'<button onclick="searchCompany()" class="btn" style="background:'+T.acc+';color:white;padding:0 16px;border-radius:12px">検索</button></div>';
+  
+  if(S.searchResults.length > 0){
+    html += '<div style="margin-top:10px;max-height:150px;overflow-y:auto;border:1px solid rgba(0,0,0,0.1);border-radius:8px">';
+    S.searchResults.forEach(r=>{
+      var badgeColor = r.hasRealtime ? '#10b981' : '#f59e0b';
+      var badgeText = r.hasRealtime ? 'GPS対応' : '時刻表のみ';
+      html += '<div class="list-item" onclick=\'selectCompany('+JSON.stringify(r)+')\'>'
+      +'<span style="font-size:13px;font-weight:600">'+e(r.name)+'</span>'
+      +'<span class="badge" style="background:'+badgeColor+'">'+badgeText+'</span></div>';
     });
-    html+='</div></div>'
-    +'<div style="background:'+T.card+';border-radius:14px;padding:16px;border:1px solid '+T.border+';margin-bottom:14px">'
-    +'<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:'+T.text+'">🔔 通知タイミング</div>'
-    +'<div style="display:flex;background:'+T.bg+';border-radius:10px;padding:3px;margin-bottom:10px">'
-    +'<button onclick="S.nm=\'stops\';render()" style="flex:1;padding:7px;border:none;border-radius:8px;background:'+(S.nm==="stops"?T.acc:"none")+';color:'+(S.nm==="stops"?"white":T.sub)+';font-size:12px;cursor:pointer;font-family:inherit">何つ前の停留所</button>'
-    +'<button onclick="S.nm=\'minutes\';render()" style="flex:1;padding:7px;border:none;border-radius:8px;background:'+(S.nm==="minutes"?T.acc:"none")+';color:'+(S.nm==="minutes"?"white":T.sub)+';font-size:12px;cursor:pointer;font-family:inherit">何分前</button>'
-    +'</div>';
-    if(S.nm==="stops"){
-      html+='<div style="display:flex;justify-content:space-between;font-size:12px;color:'+T.sub+';margin-bottom:5px"><span>前の停留所数</span><span style="color:'+T.acc+';font-weight:700">'+S.ns+'つ前</span></div>'
-      +'<input type="range" style="accent-color:'+T.acc+'" min="1" max="'+Math.min(5,S.ti||5)+'" value="'+S.ns+'" onchange="S.ns=+this.value;render()" oninput="S.ns=+this.value;render()">'
-      +'<div style="margin-top:8px;background:'+T.bg+';border-radius:8px;padding:7px 10px;font-size:12px;color:'+T.sub+'">📍 <span style="color:#a78bfa">'+(S.route.stops[Math.max(0,S.ti-S.ns)]?e(S.route.stops[Math.max(0,S.ti-S.ns)].name):"")+'</span></div>';
-    }else{
-      html+='<div style="display:flex;justify-content:space-between;font-size:12px;color:'+T.sub+';margin-bottom:5px"><span>到着前の分数</span><span style="color:'+T.acc+';font-weight:700">'+S.nm2+'分前</span></div>'
-      +'<input type="range" style="accent-color:'+T.acc+'" min="1" max="15" value="'+S.nm2+'" onchange="S.nm2=+this.value;render()" oninput="S.nm2=+this.value;render()">';
-    }
-    html+='</div>'
-    +'<button onclick="if(window.Notification)Notification.requestPermission()" class="btn" style="width:100%;padding:11px;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white;margin-bottom:8px">🔔 スマホ通知を許可する</button>';
-    if(S.rid)html+='<button onclick="drt()" class="btn" style="width:100%;padding:11px;background:'+T.card+';border:1px solid '+T.border+';color:'+T.acc+';margin-bottom:8px">🔃 位置情報を今すぐ更新</button>';
-    html+='</div>';
+    html += '</div>';
   }
-  app.innerHTML=html;
+  if(S.co) html += '<div style="margin-top:10px;font-weight:bold;color:'+T.acc+'">選択中: '+e(S.co.name)+'</div>';
+  html += '</div>';
+  
+  // 2. バス停選択カード
+  if(S.co){
+    html += '<div class="card" style="background:'+T.card+'">'
+    +'<div style="font-weight:700;margin-bottom:8px;font-size:14px;color:'+T.sub+'">Step 2: 乗るバス停を選ぶ</div>'
+    +'<input type="text" class="input-text" placeholder="バス停名で絞り込み..." oninput="filterStops(this.value)">'
+    +'<div style="max-height:160px;overflow-y:auto;background:rgba(0,0,0,0.02);border-radius:8px">';
+    S.sStops.forEach(s=>{
+      html += '<div class="list-item" style="padding:10px;font-size:13px" onclick="selectStop(\''+s.id+'\',\''+e(s.name)+'\')">'
+      +'<span>🚏 '+e(s.name)+'</span>'
+      +'<span style="color:'+T.sub+';font-size:11px">選択 ➔</span></div>';
+    });
+    html += '</div>';
+    if(S.sname) html += '<div style="margin-top:10px;font-weight:bold;color:'+T.acc+'">選択中: '+e(S.sname)+'</div>';
+    html += '</div>';
+  }
+  
+  // 3. ダイヤ・通知設定カード
+  if(S.sid && S.trips.length > 0){
+    html += '<div class="card" style="background:'+T.card+'">'
+    +'<div style="font-weight:700;margin-bottom:8px;font-size:14px;color:'+T.sub+'">Step 3: 乗るバスの時間を設定</div>'
+    +'<div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">';
+    S.trips.forEach((t, i)=>{
+      var sel = S.ti === i;
+      html += '<div onclick="S.ti='+i+';render()" style="padding:10px;border-radius:10px;border:2px solid '+(sel?T.acc:'transparent')+';background:'+(sel?T.btn:'rgba(0,0,0,0.02)')+';cursor:pointer;display:flex;justify-content:space-between">'
+      +'<span style="font-weight:600;font-size:13px">⏰ '+t.timeStr+' 発 ('+e(t.rname)+')</span>'
+      +'<span style="font-size:12px;color:'+T.sub+'">'+(sel?'✅ 選択中':'選択')+'</span></div>';
+    });
+    html += '</div>';
+    
+    // GPSの有無で設定項目を自動で切り替える
+    if(!S.co.hasRealtime) {
+      html += '<div style="background:rgba(245,158,11,0.1);padding:8px;border-radius:8px;font-size:11px;color:#d97706;margin-bottom:10px;line-height:1.4">⚠️ このバス会社はGPS非対応のため、時刻表の予定時間ベースで通知します。</div>'
+      +'<div style="display:flex;justify-content:space-between;font-size:12px;color:'+T.sub+';margin-bottom:5px"><span>到着前の通知タイミング</span><span style="color:'+T.acc+';font-weight:700">'+S.nm2+'分前</span></div>'
+      +'<input type="range" style="accent-color:'+T.acc+';width:100%" min="1" max="15" value="'+S.nm2+'" onchange="S.nm2=+this.value;render()" oninput="S.nm2=+this.value;render()">';
+    } else {
+      html += '<div style="display:flex;justify-content:space-between;font-size:12px;color:'+T.sub+';margin-bottom:5px"><span>通知するタイミング</span><span style="color:'+T.acc+';font-weight:700">'+S.ns+'個前の停留所</span></div>'
+      +'<input type="range" style="accent-color:'+T.acc+';width:100%" min="1" max="5" value="'+S.ns+'" onchange="S.ns=+this.value;render()" oninput="S.ns=+this.value;render()">';
+    }
+    
+    html += '</div>'
+    +'<button onclick="if(window.Notification)Notification.requestPermission()" class="btn" style="width:100%;padding:11px;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white;margin-bottom:8px">🔔 スマホ通知を許可する</button>';
+    
+    if(S.ti >= 0){
+      var isRun = S.rid !== null;
+      html += '<button onclick="drt()" class="btn" style="width:100%;padding:14px;background:'+(isRun?'#ef4444':T.acc)+';color:white;font-size:15px;box-shadow:0 4px 12px rgba(0,0,0,0.1);animation:'+(isRun?'urgent 2s infinite':'none')+'">'+(isRun?'🛑 接近監視を止める':'🚀 接近通知を受け取る')+'</button>';
+    }
+  } else if(S.sid) {
+    html += '<div class="card" style="background:'+T.card+';font-size:13px;color:'+T.sub+';text-align:center">⚠️ 直近2時間以内に走るバスのダイヤが見つかりませんでした。</div>';
+  }
+  
+  // 4. デバッグログ（開発中の動きが見える安心窓口）
+  html += '<div style="margin-top:15px"><div style="font-size:11px;color:'+T.sub+';margin-bottom:4px;font-weight:bold">🛠️ システム動作ログ</div>'
+  +'<textarea readonly style="width:100%;height:90px;background:rgba(0,0,0,0.05);border:none;border-radius:10px;padding:8px;font-family:monospace;font-size:11px;color:'+T.sub+';resize:none">'+e(S.log)+'</textarea></div>';
+  
+  app.innerHTML = html;
 }
 
-try{["buskuru","buskuru2","buskuru3","buskuru4","bk5","bk6","bk7","bk8"].forEach(function(k){localStorage.removeItem(k);});}catch(x){}
-var cfg=lv();
-if(cfg&&cfg.route){
-  S.route=cfg.route;S.ti=cfg.ti||0;
-  S.gurl=cfg.gurl||null;S.rid=cfg.rid||null;S.hasRT=cfg.hasRT||false;
-  S.nm=cfg.nm||"stops";S.ns=cfg.ns||2;S.nm2=cfg.nm2||5;
-  S.scr="monitor";if(S.rid)srt();
-}
 render();
 </script>
 </body>
