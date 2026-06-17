@@ -6,76 +6,82 @@
 <title>バス接近通知 - Bus KURU</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;min-height:100vh;transition:background 1s,color 0.5s}
-#app{max-width:430px;margin:0 auto;padding:14px}
+body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;min-height:100vh;transition:background 1s,color 0.5s;overflow-x:hidden}
+#app{max-width:430px;margin:0 auto;padding:16px}
 .btn{border:none;border-radius:12px;cursor:pointer;font-family:inherit;font-weight:600;font-size:14px;transition:all 0.2s;display:inline-flex;align-items:center;justify-content:center}
 .btn:active{transform:scale(0.98)}
-@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-@keyframes urgent{0%,100%{box-shadow:0 0 0 rgba(239,68,68,0.4)}50%{box-shadow:0 0 14px rgba(239,68,68,0)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes urgent{0%,100%{box-shadow:0 0 0 rgba(239,68,68,0.4)}50%{box-shadow:0 0 16px rgba(239,68,68,0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
-.card{border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);backdrop-filter:blur(8px);transition:all 0.3s}
-.input-text{width:100%;padding:12px;border-radius:12px;border:1px solid rgba(0,0,0,0.15);font-size:14px;outline:none;margin-bottom:10px;background:rgba(255,255,255,0.9)}
-.list-item{padding:12px;border-bottom:1px solid rgba(0,0,0,0.05);cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background 0.2s}
-.badge{padding:2px 6px;border-radius:6px;font-size:11px;font-weight:bold;color:white}
+.card{border-radius:20px;padding:20px;margin-bottom:16px;box-shadow:0 8px 32px rgba(0,0,0,0.1);backdrop-filter:blur(12px);transition:all 0.3s;animation:float 4s ease-in-out infinite}
+.card:nth-child(2){animation-delay:0.5s}
+.input-text{width:100%;padding:14px;border-radius:12px;border:1px solid rgba(0,0,0,0.12);font-size:14px;outline:none;margin-bottom:12px;background:rgba(255,255,255,0.95);transition:all 0.2s}
+.input-text:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,0.15)}
+.list-item{padding:14px;border-bottom:1px solid rgba(0,0,0,0.06);cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background 0.2s;border-radius:8px}
+.list-item:hover{background:rgba(0,0,0,0.02)}
+.badge{padding:3px 8px;border-radius:8px;font-size:11px;font-weight:bold;color:white}
 
-/* フローティングバスアニメーション */
 @keyframes bus-swim {
-  0% { transform: translateX(-5px) translateY(0); }
-  50% { transform: translateX(5px) translateY(-2px); }
-  100% { transform: translateX(-5px) translateY(0); }
+  0% { transform: translateX(-4px) translateY(0); }
+  50% { transform: translateX(4px) translateY(-2px); }
+  100% { transform: translateX(-4px) translateY(0); }
 }
-.title-bus {
-  display: inline-block;
-  animation: bus-swim 3s ease-in-out infinite;
-}
+.title-bus { display: inline-block; animation: bus-swim 2.5s ease-in-out infinite; margin-right: 6px; }
 
-/* タイムライン表示（重なりバグ修正：paddingを適切に確保） */
-.timeline{position:relative;padding-left:28px;margin-left:10px;border-left:2px solid #ddd}
-.timeline-node{position:absolute;left:-5px;top:5px;width:10px;height:10px;border-radius:50%;background:#ccc;transition:all 0.3s}
-.timeline-node.active{background:#7c3aed;box-shadow:0 0 8px #7c3aed}
-.timeline-node.bus-here{background:#ef4444;border:2px solid white;width:14px;height:14px;left:-7px;animation:pulse 1s infinite;box-shadow:0 0 8px #ef4444}
+/* タイムライン配置のバグ修正 */
+.timeline{position:relative;padding-left:32px;margin-left:8px;border-left:2px dashed rgba(124,58,237,0.3)}
+.timeline-node{position:absolute;left:-6px;top:6px;width:10px;height:10px;border-radius:50%;background:#cbd5e1;transition:all 0.3s}
+.timeline-node.active{background:#7c3aed;box-shadow:0 0 10px #7c3aed;width:12px;height:12px;left:-7px}
+.timeline-node.bus-here{background:#ef4444;border:2px solid white;width:16px;height:16px;left:-9px;animation:pulse 0.8s infinite;box-shadow:0 0 10px #ef4444}
+
+/* モード切り替えタブ */
+.mode-tabs{display:flex;padding:4px;border-radius:12px;margin-bottom:12px}
+.mode-tab-btn{flex:1;padding:8px;border-radius:8px;font-size:12px;font-weight:bold;border:none;cursor:pointer;transition:all 0.2s}
+
+/* 時刻表内曜日タブ */
+.day-tabs{display:flex;gap:4px;margin-bottom:8px;background:rgba(0,0,0,0.05);padding:3px;border-radius:8px}
+.day-tab-btn{flex:1;padding:6px;font-size:11px;border-radius:6px;border:none;cursor:pointer;font-weight:bold;background:transparent}
 </style>
 </head>
 <body>
 <div id="app"></div>
 <script>
-// Cloudflare Workers のエンドポイントURL
 var W = "https://cold-recipe-799d.kikucchao.workers.dev";
 
-// 全アプリケーション状態
 var S = {
-  co: null,          // 選択されたバス会社
-  stops: [],         // バス停一覧マスター
-  sStops: [],        // 検索フィルター適用後のバス停一覧
-  sid: "",           // 選択されたバス停ID
-  sname: "",         // 選択されたバス停名（表示用）
-  trips: [],         // 本日の通過便リスト
-  ti: -1,            // 選択中の便のインデックス
-  mode: 1,           // 1:停留所カウント, 2:到着前分数
-  ns: 1,             // 何個前の停留所か
-  nm2: 5,            // 何分前か
-  rid: null,         // 接近監視のインターバルタイマーID
-  log: "",           // デバッグシステムログ
-  bg: "",            // GTFS ZIPデータのダウンロード元URL
+  co: null,
+  stops: [],
+  sStops: [],
+  sid: "",
+  sname: "",
+  trips: [],         // 選択された曜日の通過便リスト
+  allTripsRaw: [],   // 生の全通過スケジュール保持用
+  ti: -1,
+  mode: 1,
+  ns: 1,
+  nm2: 5,
+  rid: null,
+  log: "",
+  bg: "",
   theme: 'light',
-  searchQuery: "",   // バス会社検索クエリ
-  searchResults: [], // バス会社検索結果リスト
-  rawFiles: null,    // 展開されたGTFSテキストファイル群
-  routeStops: [],    // 選択便の全経由停留所シーケンス
-  busCurrentSeq: -1, // バスの現在位置シーケンス
-  showTimetable: false
+  searchQuery: "",
+  searchResults: [],
+  rawFiles: null,
+  routeStops: [],
+  busCurrentSeq: -1,
+  showTimetable: false,
+  timetableDayFilter: 'today' // today, weekday, holiday
 };
 
 var T = {};
 function checkTheme(){
   var h = new Date().getHours();
-  // タイポ（h rolls）を修正
   if(h >= 18 || h < 6){
     S.theme = 'dark';
-    T = {bg:'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',card:'rgba(30,41,59,0.75)',text:'#f8fafc',sub:'#94a3b8',acc:'#a78bfa',btn:'#334155',bTxt:'#f8fafc',inputBorder:'rgba(255,255,255,0.15)'};
+    T = {bg:'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',card:'rgba(30,41,59,0.8)',text:'#f8fafc',sub:'#94a3b8',acc:'#a78bfa',btn:'#334155',bTxt:'#f8fafc',inputBorder:'rgba(255,255,255,0.15)',tabBg:'#1e293b',tabActive:'#334155',tabUnselected:'#94a3b8'};
   }else{
     S.theme = 'light';
-    T = {bg:'linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%)',card:'rgba(255,255,255,0.85)',text:'#1e293b',sub:'#64748b',acc:'#7c3aed',btn:'#e2e8f0',bTxt:'#334155',inputBorder:'rgba(0,0,0,0.1)'};
+    T = {bg:'linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%)',card:'rgba(255,255,255,0.9)',text:'#1e293b',sub:'#64748b',acc:'#7c3aed',btn:'#e2e8f0',bTxt:'#334155',inputBorder:'rgba(0,0,0,0.1)',tabBg:'rgba(0,0,0,0.06)',tabActive:'#ffffff',tabUnselected:'#64748b'};
   }
   document.body.style.background = T.bg;
   document.body.style.color = T.text;
@@ -85,7 +91,6 @@ checkTheme();
 function e(s){return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function l(m){S.log=m+"\n"+S.log;render();}
 
-// CSVパース
 function parseCSV(t){
   if(!t)return [];
   var ls = t.split("\n"), hd = ls[0].replace(/\r/g,"").split(",").map(c=>c.trim().replace(/^"|"$/g,""));
@@ -99,10 +104,21 @@ function parseCSV(t){
   return res;
 }
 
-// 運行区分（曜日）の判定
+function getServiceIdsByGroup(calendarRows, type) {
+  var ids = [];
+  calendarRows.forEach(r => {
+    if (type === 'weekday' && (r.monday === "1" || r.tuesday === "1" || r.wednesday === "1" || r.thursday === "1" || r.friday === "1")) {
+      ids.push(r.service_id);
+    } else if (type === 'holiday' && (r.saturday === "1" || r.sunday === "1")) {
+      ids.push(r.service_id);
+    }
+  });
+  return ids;
+}
+
 function getTodayServiceIds(calendarRows){
   var now = new Date();
-  var day = now.getDay(); // 0:日, 1:月... 6:土
+  var day = now.getDay();
   var ymd = now.getFullYear() + ("0"+(now.getMonth()+1)).slice(-2) + ("0"+now.getDate()).slice(-2);
   var ids = [];
   calendarRows.forEach(r => {
@@ -114,18 +130,11 @@ function getTodayServiceIds(calendarRows){
     if(day===4 && r.thursday==="1") m = true;
     if(day===5 && r.friday==="1") m = true;
     if(day===6 && r.saturday==="1") m = true;
-    if(m){
-      if(r.start_date && r.end_date){
-        if(ymd >= r.start_date && ymd <= r.end_date) ids.push(r.service_id);
-      } else {
-        ids.push(r.service_id);
-      }
-    }
+    if(m && (!r.start_date || (ymd >= r.start_date && ymd <= r.end_date))) ids.push(r.service_id);
   });
   return ids;
 }
 
-// 1. バス会社検索
 async function searchCompany(){
   var q = document.getElementById("coSearch")?.value || "";
   S.searchQuery = q;
@@ -138,12 +147,9 @@ async function searchCompany(){
     S.searchResults = d.results || [];
     l("✅ " + S.searchResults.length + "件の事業者が見つかりました");
     render();
-  } catch(err) {
-    l("❌ 接続エラー: " + err.message);
-  }
+  } catch(err) { l("❌ 接続エラー: " + err.message); }
 }
 
-// 2. バス会社選択
 async function selectCompany(selected){
   S.co = selected;
   S.stops = []; S.sStops = []; S.sid = ""; S.trips = []; S.ti = -1;
@@ -157,15 +163,14 @@ async function selectCompany(selected){
     }
     var r = await fetch(url);
     var d = await r.json();
-    if(d.error){ l("❌ 構成データ取得失敗: "+d.error); return; }
+    if(d.error){ l("❌ データ取得失敗: "+d.error); return; }
     S.bg = d.latestUrl;
     S.co.hasRealtime = d.hasRealtime;
     S.mode = S.co.hasRealtime ? 1 : 2;
     
-    l("⏳ ダイヤ情報を取り込み中...");
     var r2 = await fetch(W + "/?action=fetch_stops&url=" + encodeURIComponent(S.bg));
     var d2 = await r2.json();
-    if(!d2.success){ l("❌ 展開に失敗しました"); return; }
+    if(!d2.success){ l("❌ データの展開に失敗しました"); return; }
     
     S.rawFiles = d2.files;
     
@@ -173,11 +178,7 @@ async function selectCompany(selected){
     var tripsRows = parseCSV(S.rawFiles["trips.txt"]);
     
     var tripHeadsignMap = {};
-    tripsRows.forEach(t => {
-      if(t.trip_id && t.trip_headsign) {
-        tripHeadsignMap[t.trip_id] = t.trip_headsign;
-      }
-    });
+    tripsRows.forEach(t => { if(t.trip_id && t.trip_headsign) tripHeadsignMap[t.trip_id] = t.trip_headsign; });
 
     var stopDirections = {};
     stopTimesRows.forEach(st => {
@@ -193,32 +194,21 @@ async function selectCompany(selected){
     
     stopsRows.forEach(s => {
       if(!s.stop_id || !s.stop_name) return;
-      
       var dirSet = stopDirections[s.stop_id];
       var dirStr = "";
-      if(s.stop_desc && s.stop_desc.trim()) {
-        dirStr = " (" + s.stop_desc.trim() + ")";
-      } else if(dirSet && dirSet.size > 0) {
-        dirStr = " (" + Array.from(dirSet).join('/') + ")";
-      }
+      if(s.stop_desc && s.stop_desc.trim()) { dirStr = " (" + s.stop_desc.trim() + ")"; }
+      else if(dirSet && dirSet.size > 0) { dirStr = " (" + Array.from(dirSet).join('/') + ")"; }
       
-      S.stops.push({
-        id: s.stop_id,
-        name: s.stop_name,
-        fullName: s.stop_name + dirStr
-      });
+      S.stops.push({ id: s.stop_id, name: s.stop_name, fullName: s.stop_name + dirStr });
     });
     
     S.stops.sort((a,b)=>a.fullName.localeCompare(b.fullName,"ja"));
     S.sStops = S.stops.slice(0,50);
-    l("✅ バス停情報・方向系統の紐付けに成功");
+    l("✅ ダイヤ情報の取り込みに成功");
     render();
-  } catch(err) {
-    l("❌ 読込エラー: " + err.message);
-  }
+  } catch(err) { l("❌ 読込エラー: " + err.message); }
 }
 
-// バス停入力の絞り込み処理
 function onStopInput(el) {
   var q = el.value.trim();
   if(!q){ S.sStops = S.stops.slice(0,50); }
@@ -229,71 +219,77 @@ function onStopInput(el) {
     var h = "";
     S.sStops.forEach(s=>{
       h += '<div class="list-item" style="padding:10px;font-size:13px" onclick="selectStop(\''+s.id+'\',\''+e(s.fullName)+'\')">'
-      +'<span>🚏 '+e(s.fullName)+'</span>'
-      +'<span style="color:'+T.sub+';font-size:11px">選択 ➔</span></div>';
+      +'<span>🚏 '+e(s.fullName)+'</span><span style="color:'+T.sub+';font-size:11px">選択 ➔</span></div>';
     });
     box.innerHTML = h;
   }
 }
 
-// 3. バス停選択完了
 async function selectStop(sid, fullStopName){
-  S.sid = sid; S.sname = fullStopName; S.trips = []; S.ti = -1;
-  l("🚏 停留所確定: " + fullStopName);
+  S.sid = sid; S.sname = fullStopName; S.trips = []; S.allTripsRaw = []; S.ti = -1; S.timetableDayFilter = 'today';
+  l("🚏 バス停確定: " + fullStopName);
   render();
 
   try {
     var r = await fetch(W + "/?action=fetch_route&url=" + encodeURIComponent(S.bg) + "&stop_id=" + encodeURIComponent(sid));
     var d = await r.json();
-    if(!d.success){ l("❌ 運行便の抽出に失敗: "+d.error); return; }
-    
-    var calRows = parseCSV(S.rawFiles["calendar.txt"]);
-    var activeServices = getTodayServiceIds(calRows);
+    if(!d.success){ l("❌ 運行スケジュール抽出失敗"); return; }
     
     var stList = parseCSV(d.files["stop_times.txt"]), tList = parseCSV(S.rawFiles["trips.txt"]), rList = parseCSV(S.rawFiles["routes.txt"]);
-    
     var rMap = {}; rList.forEach(x=>{ rMap[x.route_id] = x.route_short_name || x.route_long_name; });
-    var tMap = {}; 
-    tList.forEach(x=>{ 
-      if(activeServices.length === 0 || activeServices.includes(x.service_id)) {
-        tMap[x.trip_id] = {rid:x.route_id, rname:rMap[x.route_id]||"路線"}; 
-      }
-    });
     
-    var now = new Date();
-    var curMin = now.getHours()*60 + now.getMinutes();
-    
+    // 全便の生データを一時保存
     var myStops = stList.filter(x=>x.stop_id===sid);
-    var arr = [];
-    myStops.forEach(x=>{
-      var info = tMap[x.trip_id];
-      if(!info) return;
-      
+    S.allTripsRaw = [];
+    myStops.forEach(x => {
+      var tInfo = tList.find(t => t.trip_id === x.trip_id);
+      if(!tInfo) return;
       var tstr = x.departure_time || x.arrival_time || "";
       var p = tstr.split(":");
-      if(p.length>=2){
-        var m = (+p[0])*60 + (+p[1]);
-        arr.push({tripId:x.trip_id, timeStr:tstr.substring(0,5), min:m, rname:info.rname, seq:+x.stop_sequence});
+      if(p.length >= 2){
+        S.allTripsRaw.push({
+          tripId: x.trip_id,
+          serviceId: tInfo.service_id,
+          timeStr: tstr.substring(0,5),
+          min: (+p[0])*60 + (+p[1]),
+          rname: rMap[tInfo.route_id] || "路線",
+          seq: +x.stop_sequence
+        });
       }
     });
     
-    arr.sort((a,b)=>a.min-b.min);
-    S.trips = arr;
-    
-    var nextIdx = S.trips.findIndex(t => t.min >= curMin);
-    if(nextIdx !== -1) S.ti = nextIdx;
-    else if(S.trips.length > 0) S.ti = 0;
-    
-    if(S.ti >= 0) buildRouteLine();
-    
-    l("✅ 本日の通過スケジュールを反映しました");
+    filterTimetable();
+    l("✅ 時刻表同期完了");
     render();
-  } catch(err) {
-    l("❌ スケジュール同期エラー: " + err.message);
-  }
+  } catch(err) { l("❌ 同期エラー: " + err.message); }
 }
 
-// 縦並びの経由ルート構築
+function filterTimetable() {
+  if(!S.rawFiles) return;
+  var calRows = parseCSV(S.rawFiles["calendar.txt"]);
+  var targetServiceIds = [];
+  
+  if (S.timetableDayFilter === 'today') targetServiceIds = getTodayServiceIds(calRows);
+  else if (S.timetableDayFilter === 'weekday') targetServiceIds = getServiceIdsByGroup(calRows, 'weekday');
+  else if (S.timetableDayFilter === 'holiday') targetServiceIds = getServiceIdsByGroup(calRows, 'holiday');
+  
+  S.trips = S.allTripsRaw.filter(t => targetServiceIds.length === 0 || targetServiceIds.includes(t.serviceId));
+  S.trips.sort((a,b)=>a.min-b.min);
+  
+  var now = new Date();
+  var curMin = now.getHours()*60 + now.getMinutes();
+  
+  // 今日かつ次発がある場合自動フォーカス
+  if(S.timetableDayFilter === 'today') {
+    var nextIdx = S.trips.findIndex(t => t.min >= curMin);
+    if(nextIdx !== -1) S.ti = nextIdx;
+    else if(S.trips.length > 0) S.ti = -2; // 最終便通過
+  } else {
+    S.ti = S.trips.length > 0 ? 0 : -1;
+  }
+  if(S.ti >= 0) buildRouteLine();
+}
+
 function buildRouteLine(){
   if(S.ti < 0 || !S.rawFiles) return;
   var tr = S.trips[S.ti];
@@ -312,13 +308,12 @@ function buildRouteLine(){
   }));
 }
 
-// 接近情報監視
 function drt(){
   if(S.rid){ clearInterval(S.rid); S.rid = null; l("🛑 接近監視を停止しました"); render(); return; }
-  if(S.ti < 0){ alert("便を選択してください"); return; }
+  if(S.ti < 0){ alert("有効な便を選択してください"); return; }
   
   var tr = S.trips[S.ti];
-  l("🚀 接近監視を開始しました: " + tr.timeStr + " 発");
+  l("🚀 接近監視開始: " + tr.timeStr);
   
   S.rid = setInterval(async function(){
     try {
@@ -327,181 +322,202 @@ function drt(){
       
       if(S.mode === 2 || !S.co.hasRealtime) {
         var diff = tr.min - curMin;
-        l("⏰ 到着まであと約 " + diff + " 分 (時刻表ベースの計算中)");
-        
         var passed = S.routeStops.filter(s => {
           var p = s.time.split(":");
           return ((+p[0])*60 + (+p[1])) <= curMin;
         });
         if(passed.length > 0) S.busCurrentSeq = passed[passed.length-1].seq;
-        
-        if(diff <= S.nm2 && diff >= 0){
-          sendNotification("🚌 バス接近", S.sname + " にまもなく到着予定です。");
-          drt();
-        }
-        render();
-        return;
+        if(diff <= S.nm2 && diff >= 0){ sendNotification("🚌 バス接近", S.sname + " にまもなく到着します。"); drt(); }
+        render(); return;
       }
       
       var r = await fetch(W + "/?action=realtime&id=" + encodeURIComponent(S.co.id));
       var d = await r.json();
-      if(d.error){ l("❌ リアルタイム追跡が一時的に途切れました"); return; }
-      
       var vs = d.vehicles || [];
       var targetBus = vs.find(v => v.tripId === tr.tripId);
       
       if(targetBus) {
         if(S.busCurrentSeq === -1) S.busCurrentSeq = S.routeStops[0].seq;
         else if(S.busCurrentSeq < tr.seq) S.busCurrentSeq++;
-        
         var dist = tr.seq - S.busCurrentSeq;
-        l("📍 バスを確認！目標停留所まであと " + dist + " 駅");
-        
-        if(dist <= S.ns && dist >= 0){
-          sendNotification("🚌 バス接近", S.sname + " の " + dist + " 個手前を走行中です！");
-          drt();
-        }
-      } else {
-        l("⏳ バスのリアルタイム位置電波を受信待ち...");
+        if(dist <= S.ns && dist >= 0){ sendNotification("🚌 バス接近", S.sname + " の " + dist + " 個手前です！"); drt(); }
       }
       render();
-    } catch(err){
-      l("❌ 監視中にエラーが発生しました");
-    }
+    } catch(err){}
   }, 10000);
   render();
 }
 
 function sendNotification(title, body){
-  if(window.Notification && Notification.permission === "granted"){
-    new Notification(title, {body:body});
-  } else {
-    alert(title + "\n" + body);
-  }
+  if(window.Notification && Notification.permission === "granted") new Notification(title, {body:body});
+  else alert(title + "\n" + body);
+}
+
+// スライダー専用の超なめらか更新ロジック（画面全体の再レンダリングを回避）
+function updateSliderValue(val, isMode1) {
+  if(isMode1) { S.ns = +val; document.getElementById("slider-val-txt").innerText = val + "個前の停留所"; }
+  else { S.nm2 = +val; document.getElementById("slider-val-txt").innerText = val + "分前"; }
 }
 
 function render(){
   var app = document.getElementById("app");
   if(!app) return;
   
-  var html = '<div style="font-weight:800;font-size:22px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between">'
-  +'<span><span class="title-bus">🚌</span> Bus KURU</span>'
-  +'<span style="font-size:12px;background:'+T.btn+';padding:4px 8px;border-radius:20px;color:'+T.bTxt+'">'+(S.theme==='dark'?'🌙 夜間モード':'☀️ 昼間モード')+'</span></div>';
+  var html = '<div style="font-weight:800;font-size:24px;margin-bottom:18px;display:flex;align-items:center">'
+  +'<span><span class="title-bus">🚌</span>Bus KURU</span></div>';
   
-  if(S.sid && S.ti >= 0 && S.routeStops.length > 0){
-    var tr = S.trips[S.ti];
+  if(S.sid && (S.ti >= 0 || S.ti === -2) && S.allTripsRaw.length > 0){
     var now = new Date();
     var curMin = now.getHours()*60 + now.getMinutes();
-    var remMin = tr.min - curMin;
     
-    html += '<div class="card" style="background:'+T.card+';border-top:4px solid '+T.acc+'">'
-    +'<div style="display:flex;gap:6px;margin-bottom:12px">'
-    +'<button onclick="S.co=null;S.sid=\'\';S.routeStops=[];render()" class="btn" style="background:'+T.btn+';color:'+T.bTxt+';padding:6px 12px;font-size:12px;border-radius:8px">🔄 会社変更</button>'
-    +'<button onclick="S.sid=\'\';S.routeStops=[];render()" class="btn" style="background:'+T.btn+';color:'+T.bTxt+';padding:6px 12px;font-size:12px;border-radius:8px">🚏 バス停変更</button>'
-    +'<button onclick="S.showTimetable=!S.showTimetable;render()" class="btn" style="background:'+T.acc+';color:white;padding:6px 12px;font-size:12px;border-radius:8px">📅 他の便リスト</button>'
+    html += '<div class="card" style="background:'+T.card+';border-top:5px solid '+T.acc+'">'
+    +'<div style="display:flex;gap:8px;margin-bottom:14px">'
+    +'<button onclick="S.co=null;S.sid=\'\';S.routeStops=[];render()" class="btn" style="background:'+T.btn+';color:'+T.bTxt+';padding:8px 14px;font-size:12px;border-radius:10px">🔄 会社変更</button>'
+    +'<button onclick="S.sid=\'\';S.routeStops=[];render()" class="btn" style="background:'+T.btn+';color:'+T.bTxt+';padding:8px 14px;font-size:12px;border-radius:10px">🚏 バス停変更</button>'
+    +'<button onclick="S.showTimetable=!S.showTimetable;render()" class="btn" style="background:'+T.acc+';color:white;padding:8px 14px;font-size:12px;border-radius:10px">📅 時刻表</button>'
     +'</div>'
     
-    +'<div style="font-size:17px;font-weight:bold;margin-bottom:4px">🚏 '+e(S.sname)+'</div>'
-    +'<div style="font-size:12px;color:'+T.sub+';margin-bottom:12px">'+e(S.co.name)+' / '+e(tr.rname)+'</div>';
+    +'<div style="font-size:18px;font-weight:bold;margin-bottom:4px">🚏 '+e(S.sname)+'</div>'
+    +'<div style="font-size:12px;color:'+T.sub+';margin-bottom:14px">'+e(S.co.name)+'</div>';
     
+    // 曜日切り替えタブ付き時刻表
     if(S.showTimetable){
-      html += '<div style="background:rgba(0,0,0,0.04);padding:10px;border-radius:10px;margin-bottom:12px;max-height:140px;overflow-y:auto">'
-      +'<div style="font-size:11px;font-weight:bold;margin-bottom:4px;color:'+T.sub+'">■ 本日通過する便を選択できます</div>';
-      S.trips.forEach((tk, idx) => {
-        html += '<div onclick="S.ti='+idx+';buildRouteLine();render()" style="display:flex;justify-content:space-between;padding:6px;font-size:12px;cursor:pointer;border-radius:6px;margin-bottom:2px;background:'+(S.ti===idx?T.btn:'transparent')+'">'
-        +'<span>⏱️ '+tk.timeStr+'発</span><span>'+e(tk.rname)+'</span></div>';
+      html += '<div style="background:rgba(0,0,0,0.04);padding:12px;border-radius:14px;margin-bottom:14px">'
+      +'<div class="day-tabs">'
+      +'<button onclick="S.timetableDayFilter=\'today\';filterTimetable();render()" class="day-tab-btn" style="background:'+(S.timetableDayFilter==='today'?T.tabActive:'transparent')+';color:'+(S.timetableDayFilter==='today'?T.text:T.tabUnselected)+'">今日</button>'
+      +'<button onclick="S.timetableDayFilter=\'weekday\';filterTimetable();render()" class="day-tab-btn" style="background:'+(S.timetableDayFilter==='weekday'?T.tabActive:'transparent')+';color:'+(S.timetableDayFilter==='weekday'?T.text:T.tabUnselected)+'">平日ダイヤ</button>'
+      +'<button onclick="S.timetableDayFilter=\'holiday\';filterTimetable();render()" class="day-tab-btn" style="background:'+(S.timetableDayFilter==='holiday'?T.tabActive:'transparent')+';color:'+(S.timetableDayFilter==='holiday'?T.text:T.tabUnselected)+'">土日祝ダイヤ</button>'
+      +'</div>'
+      +'<div style="max-height:150px;overflow-y:auto;background:rgba(255,255,255,0.3);border-radius:8px;padding:4px">';
+      if(S.trips.length === 0) {
+        html += '<div style="font-size:12px;color:'+T.sub+';padding:10px;text-align:center">該当する運行便はありません</div>';
+      } else {
+        S.trips.forEach((tk, idx) => {
+          html += '<div onclick="S.ti='+idx+';buildRouteLine();render()" style="display:flex;justify-content:space-between;padding:8px;font-size:12px;cursor:pointer;border-radius:6px;margin-bottom:2px;background:'+(S.ti===idx?T.acc:'transparent')+';color:'+(S.ti===idx?'#white':T.text)+'">'
+          +'<span>⏱️ '+tk.timeStr+'発</span><span style="font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e(tk.rname)+'</span></div>';
+        });
+      }
+      html += '</div></div>';
+    }
+    
+    // 到着ステータス表示（翌日始発表示ロジック追加）
+    html += '<div style="background:'+T.btn+';padding:16px;border-radius:14px;text-align:center;margin-bottom:16px">';
+    if(S.ti >= 0) {
+      var tr = S.trips[S.ti];
+      var remMin = tr.min - curMin;
+      if(remMin > 0) {
+        html += '<div style="font-size:26px;font-weight:900;color:'+T.acc+'">あと '+remMin+' 分で到着</div>'
+        +'<div style="font-size:12px;color:'+T.sub+';margin-top:4px">発車予定時間：'+tr.timeStr+'</div>';
+      } else if(remMin === 0) {
+        html += '<div style="font-size:26px;font-weight:900;color:#ef4444">まもなく到着</div>';
+      } else {
+        html += '<div style="font-size:16px;font-weight:700;color:'+T.sub+'">選択した便は通過しました</div>';
+      }
+    } else if(S.ti === -2) {
+      // 当日の最終便が終了している場合、明日の全データから最初の始発を探索
+      var calRows = parseCSV(S.rawFiles["calendar.txt"]);
+      var tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+      var tDay = tomorrow.getDay();
+      var tYmd = tomorrow.getFullYear() + ("0"+(tomorrow.getMonth()+1)).slice(-2) + ("0"+tomorrow.getDate()).slice(-2);
+      var tSids = [];
+      calRows.forEach(r => {
+        var m = false;
+        if(tDay===0 && r.sunday==="1") m = true;
+        if(tDay===1 && r.monday==="1") m = true;
+        if(tDay===2 && r.tuesday==="1") m = true;
+        if(tDay===3 && r.wednesday==="1") m = true;
+        if(tDay===4 && r.thursday==="1") m = true;
+        if(tDay===5 && r.friday==="1") m = true;
+        if(tDay===6 && r.saturday==="1") m = true;
+        if(m && (!r.start_date || (tYmd >= r.start_date && tYmd <= r.end_date))) tSids.push(r.service_id);
+      });
+      var tTrips = S.allTripsRaw.filter(t => tSids.length === 0 || tSids.includes(t.serviceId)).sort((a,b)=>a.min-b.min);
+      var firstBusStr = tTrips.length > 0 ? tTrips[0].timeStr : "--:--";
+      
+      html += '<div style="font-size:16px;font-weight:700;color:#ef4444;margin-bottom:4px">本日の最終便はすべて終了しました</div>'
+      +'<div style="font-size:13px;color:'+T.text+'">🎨 翌日の始発バス時刻：<strong style="color:'+T.acc+'">'+firstBusStr+'</strong></div>';
+    }
+    html += '</div>';
+    
+    // タイムラインルート
+    if(S.ti >= 0 && S.routeStops.length > 0) {
+      html += '<div style="font-weight:700;font-size:13px;color:'+T.sub+';margin-bottom:14px">🚌 運行ルート現在地</div>'
+      +'<div class="timeline">';
+      S.routeStops.forEach(st => {
+        var isTarget = st.id === S.sid;
+        var isBusHere = st.seq === S.busCurrentSeq;
+        var nodeClass = isBusHere ? 'timeline-node bus-here' : (isTarget ? 'timeline-node active' : 'timeline-node');
+        var labelStyle = isTarget ? 'font-weight:bold;color:'+T.acc : (isBusHere ? 'font-weight:bold;color:#ef4444' : 'color:'+T.text);
+        
+        html += '<div style="position:relative;margin-bottom:14px;font-size:13px;display:flex;justify-content:space-between;'+labelStyle+'">'
+        +'<div class="'+nodeClass+'"></div>'
+        +'<span style="max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(isBusHere?'🚌 ':'')+e(st.name)+(isTarget?' (乗車)':'')+'</span>'
+        +'<span style="color:'+T.sub+';font-size:11px">'+st.time+'</span>'
+        +'</div>';
       });
       html += '</div>';
-    }
-    
-    html += '<div style="background:'+T.btn+';padding:14px;border-radius:12px;text-align:center;margin-bottom:14px">';
-    if(remMin > 0) {
-      html += '<div style="font-size:24px;font-weight:900;color:'+T.acc+'">あと '+remMin+' 分で到着予定</div>'
-      +'<div style="font-size:12px;color:'+T.sub+';margin-top:4px">定刻予定時刻：'+tr.timeStr+'</div>';
-    } else if(remMin === 0) {
-      html += '<div style="font-size:24px;font-weight:900;color:#ef4444">まもなく到着します</div>';
-    } else {
-      html += '<div style="font-size:16px;font-weight:700;color:'+T.sub+'">バスは通過したか運行終了しています</div>'
-      +'<div style="font-size:11px;color:'+T.sub+';margin-top:2px">上のボタンから他の便を確認してください</div>';
-    }
-    html += '</div>';
-    
-    html += '<div style="font-weight:700;font-size:13px;color:'+T.sub+';margin-bottom:12px">🚌 運行ルート順（現在地）</div>'
-    +'<div class="timeline">';
-    S.routeStops.forEach(st => {
-      var isTarget = st.id === S.sid;
-      var isBusHere = st.seq === S.busCurrentSeq;
       
-      var nodeClass = isBusHere ? 'timeline-node bus-here' : (isTarget ? 'timeline-node active' : 'timeline-node');
-      var labelStyle = isTarget ? 'font-weight:bold;color:'+T.acc : (isBusHere ? 'font-weight:bold;color:#ef4444' : 'color:'+T.text);
+      html += '<div style="border-top:1px dashed rgba(0,0,0,0.1);padding-top:14px;margin-top:14px">';
+      if(S.co.hasRealtime) {
+        // 夜間モードでもハッキリ見える背景・文字色へ調整
+        html += '<div class="mode-tabs" style="background:'+T.tabBg+'">'
+        +'<button onclick="S.mode=1;render()" class="mode-tab-btn" style="background:'+(S.mode===1?T.tabActive:'transparent')+';color:'+(S.mode===1?T.text:T.tabUnselected)+'">停留所数カウント</button>'
+        +'<button onclick="S.mode=2;render()" class="mode-tab-btn" style="background:'+(S.mode===2?T.tabActive:'transparent')+';color:'+(S.mode===2?T.text:T.tabUnselected)+'">到着前の分数</button>'
+        +'</div>';
+      }
       
-      html += '<div style="position:relative;margin-bottom:12px;font-size:13px;display:flex;justify-content:space-between;'+labelStyle+'">'
-      +'<div class="'+nodeClass+'"></div>'
-      +'<span>'+(isBusHere?'🚌 ':'')+e(st.name)+(isTarget?' (乗車停留所)':'')+'</span>'
-      +'<span style="color:'+T.sub+';font-size:11px">'+st.time+'</span>'
-      +'</div>';
-    });
-    html += '</div>';
-    
-    html += '<div style="border-top:1px dashed rgba(0,0,0,0.1);padding-top:12px;margin-top:12px">';
-    if(S.co.hasRealtime) {
-      html += '<div style="display:flex;background:'+T.btn+';padding:3px;border-radius:10px;margin-bottom:10px">'
-      +'<button onclick="S.mode=1;render()" style="flex:1;padding:6px;border-radius:8px;font-size:12px;font-weight:bold;border:none;cursor:pointer;background:'+(S.mode===1?T.card:'transparent')+'">停留所数カウント</button>'
-      +'<button onclick="S.mode=2;render()" style="flex:1;padding:6px;border-radius:8px;font-size:12px;font-weight:bold;border:none;cursor:pointer;background:'+(S.mode===2?T.card:'transparent')+'">到着前の分数</button>'
-      +'</div>';
+      if(S.mode === 1 && S.co.hasRealtime){
+        html += '<div style="display:flex;justify-content:space-between;font-size:12px;color:'+T.sub+';margin-bottom:6px"><span>通知タイミング</span><span id="slider-val-txt" style="color:'+T.acc+';font-weight:700">'+S.ns+'個前の停留所</span></div>'
+        +'<input type="range" style="accent-color:'+T.acc+';width:100%;cursor:pointer" min="1" max="5" value="'+S.ns+'" oninput="updateSliderValue(this.value, true)">';
+      } else {
+        html += '<div style="display:flex;justify-content:space-between;font-size:12px;color:'+T.sub+';margin-bottom:6px"><span>通知タイミング</span><span id="slider-val-txt" style="color:'+T.acc+';font-weight:700">'+S.nm2+'分前</span></div>'
+        +'<input type="range" style="accent-color:'+T.acc+';width:100%;cursor:pointer" min="1" max="15" value="'+S.nm2+'" oninput="updateSliderValue(this.value, false)">';
+      }
+      html += '</div>';
+      
+      var isRun = S.rid !== null;
+      html += '<button onclick="if(window.Notification)Notification.requestPermission()" class="btn" style="width:100%;padding:12px;background:'+T.btn+';color:'+T.bTxt+';margin-top:16px;margin-bottom:8px">🔔 スマホ通知を許可する</button>'
+      +'<button onclick="drt()" class="btn" style="width:100%;padding:16px;background:'+(isRun?'#ef4444':T.acc)+';color:white;font-size:15px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,0.15);animation:'+(isRun?'urgent 2s infinite':'none')+'">'+(isRun?'🛑 接近監視を停止する':'🚀 この便の接近通知をONにする')+'</button>';
     }
-    
-    if(S.mode === 1 && S.co.hasRealtime){
-      html += '<div style="display:flex;justify-content:space-between;font-size:12px;color:'+T.sub+';margin-bottom:5px"><span>通知タイミング</span><span style="color:'+T.acc+';font-weight:700">'+S.ns+'個前の停留所</span></div>'
-      +'<input type="range" style="accent-color:'+T.acc+';width:100%" min="1" max="5" value="'+S.ns+'" onchange="S.ns=+this.value;render()" oninput="S.ns=+this.value;render()">';
-    } else {
-      html += '<div style="display:flex;justify-content:space-between;font-size:12px;color:'+T.sub+';margin-bottom:5px"><span>通知タイミング</span><span style="color:'+T.acc+';font-weight:700">'+S.nm2+'分前</span></div>'
-      +'<input type="range" style="accent-color:'+T.acc+';width:100%" min="1" max="15" value="'+S.nm2+'" onchange="S.nm2=+this.value;render()" oninput="S.nm2=+this.value;render()">';
-    }
-    html += '</div>';
-    
-    var isRun = S.rid !== null;
-    html += '<button onclick="if(window.Notification)Notification.requestPermission()" class="btn" style="width:100%;padding:10px;background:'+T.btn+';color:'+T.bTxt+';margin-top:14px;margin-bottom:6px">🔔 端末の通知権限を許可</button>'
-    +'<button onclick="drt()" class="btn" style="width:100%;padding:14px;background:'+(isRun?'#ef4444':T.acc)+';color:white;font-size:15px;font-weight:700;margin-top:6px;box-shadow:0 4px 12px rgba(0,0,0,0.1);animation:'+(isRun?'urgent 2s infinite':'none')+'">'+(isRun?'🛑 接近監視を停止する':'🚀 この便の接近通知をONにする')+'</button>';
     html += '</div>';
     
   } else {
+    // 1. バス会社検索カード
     html += '<div class="card" style="background:'+T.card+'">'
-    +'<div style="font-weight:700;margin-bottom:8px;font-size:13px;color:'+T.sub+'">乗車するバス会社を探す</div>'
-    +'<div style="display:flex;gap:6px"><input id="coSearch" type="text" class="input-text" style="margin-bottom:0" placeholder="例：〇〇バス、△△交通" value="'+e(S.searchQuery)+'" onkeydown="if(event.key===\'Enter\')searchCompany()">'
-    +'<button onclick="searchCompany()" class="btn" style="background:'+T.acc+';color:white;padding:0 16px;border-radius:12px">検索</button></div>';
+    +'<div style="font-weight:700;margin-bottom:10px;font-size:13px;color:'+T.sub+'">乗車するバス会社を探す</div>'
+    +'<div style="display:flex;gap:8px"><input id="coSearch" type="text" class="input-text" style="margin-bottom:0" placeholder="例：十勝バス、北海道拓殖バス" value="'+e(S.searchQuery)+'" onkeydown="if(event.key===\'Enter\')searchCompany()">'
+    +'<button onclick="searchCompany()" class="btn" style="background:'+T.acc+';color:white;padding:0 20px;border-radius:12px">検索</button></div>';
     
     if(S.searchResults.length > 0){
-      html += '<div style="margin-top:10px;max-height:150px;overflow-y:auto;border:1px solid rgba(0,0,0,0.1);border-radius:8px;background:rgba(255,255,255,0.5)">';
+      html += '<div style="margin-top:12px;max-height:160px;overflow-y:auto;border:1px solid '+T.inputBorder+';border-radius:12px;background:rgba(255,255,255,0.4)">';
       S.searchResults.forEach(r=>{
         var badgeColor = r.hasRealtime ? '#10b981' : '#f59e0b';
-        var badgeText = r.hasRealtime ? 'リアルタイム対応' : '時刻表のみ';
+        var badgeText = r.hasRealtime ? 'リアルタイム' : '時刻表のみ';
         html += '<div class="list-item" onclick=\'selectCompany('+JSON.stringify(r)+')\'>'
         +'<span style="font-size:13px;font-weight:600">'+e(r.name)+'</span>'
         +'<span class="badge" style="background:'+badgeColor+'">'+badgeText+'</span></div>';
       });
       html += '</div>';
     }
-    if(S.co) html += '<div style="margin-top:10px;font-weight:bold;color:'+T.acc+'">選択中の事業者：'+e(S.co.name)+'</div>';
+    if(S.co) html += '<div style="margin-top:12px;font-weight:bold;color:'+T.acc+';font-size:13px">選択中：'+e(S.co.name)+'</div>';
     html += '</div>';
     
+    // 2. バス停選択カード
     if(S.co){
       html += '<div class="card" style="background:'+T.card+'">'
-      +'<div style="font-weight:700;margin-bottom:8px;font-size:13px;color:'+T.sub+'">乗車するバス停・のりば（方面）の指定</div>'
-      +'<input type="text" class="input-text" placeholder="例：駅前（ひらがな・部分一致可）..." oninput="onStopInput(this)">'
-      +'<div id="stop-list-box" style="max-height:220px;overflow-y:auto;background:rgba(0,0,0,0.03);border-radius:8px">';
+      +'<div style="font-weight:700;margin-bottom:10px;font-size:13px;color:'+T.sub+'">乗車するバス停（方面・のりば）</div>'
+      +'<input type="text" class="input-text" placeholder="バス停名を入力..." oninput="onStopInput(this)">'
+      +'<div id="stop-list-box" style="max-height:240px;overflow-y:auto;background:rgba(0,0,0,0.02);border-radius:12px;border:1px solid '+T.inputBorder+'">';
       S.sStops.forEach(s=>{
-        html += '<div class="list-item" style="padding:10px;font-size:13px" onclick="selectStop(\''+s.id+'\',\''+e(s.fullName)+'\')">'
-        +'<span>🚏 '+e(s.fullName)+'</span>'
-        +'<span style="color:'+T.sub+';font-size:11px">選択 ➔</span></div>';
+        html += '<div class="list-item" style="padding:12px;font-size:13px" onclick="selectStop(\''+s.id+'\',\''+e(s.fullName)+'\')">'
+        +'<span>🚏 '+e(s.fullName)+'</span><span style="color:'+T.sub+';font-size:11px">選択 ➔</span></div>';
       });
-      html += '</div>';
-      html += '</div>';
+      html += '</div></div>';
     }
   }
   
-  html += '<div style="margin-top:15px"><div style="font-size:11px;color:'+T.sub+';margin-bottom:4px;font-weight:bold">🛠️ システム動作ログ</div>'
-  +'<textarea readonly style="width:100%;height:80px;background:rgba(0,0,0,0.05);border:none;border-radius:10px;padding:8px;font-family:monospace;font-size:11px;color:'+T.sub+';resize:none">'+e(S.log)+'</textarea></div>';
+  html += '<div style="margin-top:20px"><div style="font-size:11px;color:'+T.sub+';margin-bottom:6px;font-weight:bold">🛠️ システムログ</div>'
+  +'<textarea readonly style="width:100%;height:80px;background:rgba(0,0,0,0.04);border:none;border-radius:12px;padding:10px;font-family:monospace;font-size:11px;color:'+T.sub+';resize:none;outline:none">'+e(S.log)+'</textarea></div>';
   
   app.innerHTML = html;
 }
