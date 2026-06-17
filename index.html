@@ -13,13 +13,13 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;min-height:100vh;tran
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 @keyframes urgent{0%,100%{box-shadow:0 0 0 rgba(239,68,68,0.4)}50%{box-shadow:0 0 16px rgba(239,68,68,0)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
-.card{border-radius:20px;padding:20px;margin-bottom:16px;box-shadow:0 8px 32px rgba(0,0,0,0.1);backdrop-filter:blur(12px);transition:all 0.3s;animation:float 4s ease-in-out infinite}
+.card{border-radius:24px;padding:20px;margin-bottom:16px;box-shadow:0 12px 40px rgba(0,0,0,0.12);backdrop-filter:blur(16px);transition:all 0.3s;animation:float 4s ease-in-out infinite}
 .card:nth-child(2){animation-delay:0.5s}
-.input-text{width:100%;padding:14px;border-radius:12px;border:1px solid rgba(0,0,0,0.12);font-size:14px;outline:none;margin-bottom:12px;background:rgba(255,255,255,0.95);transition:all 0.2s}
+.input-text{width:100%;padding:14px;border-radius:14px;border:1px solid rgba(0,0,0,0.1);font-size:14px;outline:none;margin-bottom:12px;background:rgba(255,255,255,0.95);transition:all 0.2s}
 .input-text:focus{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,0.15)}
-.list-item{padding:14px;border-bottom:1px solid rgba(0,0,0,0.06);cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background 0.2s;border-radius:8px}
-.list-item:hover{background:rgba(0,0,0,0.02)}
-.badge{padding:3px 8px;border-radius:8px;font-size:11px;font-weight:bold;color:white}
+.list-item{padding:14px;border-bottom:1px solid rgba(0,0,0,0.05);cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:all 0.2s;border-radius:12px;margin-bottom:4px}
+.list-item:hover{background:rgba(124,58,237,0.05)}
+.badge{padding:4px 8px;border-radius:8px;font-size:11px;font-weight:bold;color:white}
 
 @keyframes bus-swim {
   0% { transform: translateX(-4px) translateY(0); }
@@ -28,19 +28,20 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;min-height:100vh;tran
 }
 .title-bus { display: inline-block; animation: bus-swim 2.5s ease-in-out infinite; margin-right: 6px; }
 
-/* タイムライン配置のバグ修正 */
 .timeline{position:relative;padding-left:32px;margin-left:8px;border-left:2px dashed rgba(124,58,237,0.3)}
 .timeline-node{position:absolute;left:-6px;top:6px;width:10px;height:10px;border-radius:50%;background:#cbd5e1;transition:all 0.3s}
 .timeline-node.active{background:#7c3aed;box-shadow:0 0 10px #7c3aed;width:12px;height:12px;left:-7px}
 .timeline-node.bus-here{background:#ef4444;border:2px solid white;width:16px;height:16px;left:-9px;animation:pulse 0.8s infinite;box-shadow:0 0 10px #ef4444}
 
-/* モード切り替えタブ */
 .mode-tabs{display:flex;padding:4px;border-radius:12px;margin-bottom:12px}
-.mode-tab-btn{flex:1;padding:8px;border-radius:8px;font-size:12px;font-weight:bold;border:none;cursor:pointer;transition:all 0.2s}
+.mode-tab-btn{flex:1;padding:10px;border-radius:10px;font-size:12px;font-weight:bold;border:none;cursor:pointer;transition:all 0.2s}
 
-/* 時刻表内曜日タブ */
-.day-tabs{display:flex;gap:4px;margin-bottom:8px;background:rgba(0,0,0,0.05);padding:3px;border-radius:8px}
-.day-tab-btn{flex:1;padding:6px;font-size:11px;border-radius:6px;border:none;cursor:pointer;font-weight:bold;background:transparent}
+.day-tabs{display:flex;gap:6px;margin-bottom:12px;background:rgba(0,0,0,0.04);padding:4px;border-radius:10px}
+.day-tab-btn{flex:1;padding:8px;font-size:12px;border-radius:8px;border:none;cursor:pointer;font-weight:bold;transition:all 0.2s}
+
+/* 復元：Claudeオリジナルの見やすいプレミアム他便リスト行スタイル */
+.timetable-row{display:flex;align-items:center;padding:14px 18px;background:rgba(255,255,255,0.06);border-radius:16px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;border:1px solid rgba(255,255,255,0.05)}
+.timetable-row:hover{transform:translateX(4px);background:rgba(124,58,237,0.12)}
 </style>
 </head>
 <body>
@@ -54,8 +55,8 @@ var S = {
   sStops: [],
   sid: "",
   sname: "",
-  trips: [],         // 選択された曜日の通過便リスト
-  allTripsRaw: [],   // 生の全通過スケジュール保持用
+  trips: [],
+  allTripsRaw: [],
   ti: -1,
   mode: 1,
   ns: 1,
@@ -70,7 +71,7 @@ var S = {
   routeStops: [],
   busCurrentSeq: -1,
   showTimetable: false,
-  timetableDayFilter: 'today' // today, weekday, holiday
+  timetableDayFilter: 'today'
 };
 
 var T = {};
@@ -78,10 +79,10 @@ function checkTheme(){
   var h = new Date().getHours();
   if(h >= 18 || h < 6){
     S.theme = 'dark';
-    T = {bg:'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',card:'rgba(30,41,59,0.8)',text:'#f8fafc',sub:'#94a3b8',acc:'#a78bfa',btn:'#334155',bTxt:'#f8fafc',inputBorder:'rgba(255,255,255,0.15)',tabBg:'#1e293b',tabActive:'#334155',tabUnselected:'#94a3b8'};
+    T = {bg:'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',card:'rgba(30,41,59,0.85)',text:'#f8fafc',sub:'#94a3b8',acc:'#a78bfa',btn:'#334155',bTxt:'#f8fafc',inputBorder:'rgba(255,255,255,0.15)',tabBg:'#1e293b',tabActive:'#334155',tabUnselected:'#94a3b8',rowBg:'rgba(255,255,255,0.06)'};
   }else{
     S.theme = 'light';
-    T = {bg:'linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%)',card:'rgba(255,255,255,0.9)',text:'#1e293b',sub:'#64748b',acc:'#7c3aed',btn:'#e2e8f0',bTxt:'#334155',inputBorder:'rgba(0,0,0,0.1)',tabBg:'rgba(0,0,0,0.06)',tabActive:'#ffffff',tabUnselected:'#64748b'};
+    T = {bg:'linear-gradient(135deg, #f8fafc 0%, #e0f2fe 100%)',card:'rgba(255,255,255,0.92)',text:'#1e293b',sub:'#64748b',acc:'#7c3aed',btn:'#e2e8f0',bTxt:'#334155',inputBorder:'rgba(0,0,0,0.08)',tabBg:'rgba(0,0,0,0.05)',tabActive:'#ffffff',tabUnselected:'#64748b',rowBg:'rgba(255,255,255,0.6)'};
   }
   document.body.style.background = T.bg;
   document.body.style.color = T.text;
@@ -102,6 +103,20 @@ function parseCSV(t){
     res.push(o);
   }
   return res;
+}
+
+// Googleマップ風に行き先表示を1つに集約・最適化するスマートクリーン関数
+function cleanDirectionName(fullDesc, fallbackHeadsign) {
+  var base = fullDesc || fallbackHeadsign || "";
+  base = base.replace(/[\(\)\r\n]/g, "").replace(/方面+/g, "方面").replace(/行+/g, "行");
+  var parts = base.split(/[\/、]/);
+  var primary = parts[parts.length - 1].trim(); 
+  if(!primary) primary = parts[0].trim();
+  if(!primary || primary === "一般路線") return "一般路線";
+  if(!primary.endsWith("方面") && !primary.endsWith("行")) {
+    primary += "行";
+  }
+  return primary;
 }
 
 function getServiceIdsByGroup(calendarRows, type) {
@@ -180,13 +195,13 @@ async function selectCompany(selected){
     var tripHeadsignMap = {};
     tripsRows.forEach(t => { if(t.trip_id && t.trip_headsign) tripHeadsignMap[t.trip_id] = t.trip_headsign; });
 
+    // 【拓殖バス対応】stop_descが空でもtrip_headsign側から行き先を確実にマッピングする強固なロジック
     var stopDirections = {};
     stopTimesRows.forEach(st => {
-      var headsign = tripHeadsignMap[st.trip_id];
-      if(st.stop_id && headsign) {
-        if(!stopDirections[st.stop_id]) stopDirections[st.stop_id] = new Set();
-        stopDirections[st.stop_id].add(headsign + "方面");
-      }
+      if(!st.stop_id) return;
+      var headsign = tripHeadsignMap[st.trip_id] || "一般路線";
+      if(!stopDirections[st.stop_id]) stopDirections[st.stop_id] = new Set();
+      stopDirections[st.stop_id].add(headsign);
     });
 
     var stopsRows = parseCSV(S.rawFiles["stops.txt"]);
@@ -195,11 +210,16 @@ async function selectCompany(selected){
     stopsRows.forEach(s => {
       if(!s.stop_id || !s.stop_name) return;
       var dirSet = stopDirections[s.stop_id];
-      var dirStr = "";
-      if(s.stop_desc && s.stop_desc.trim()) { dirStr = " (" + s.stop_desc.trim() + ")"; }
-      else if(dirSet && dirSet.size > 0) { dirStr = " (" + Array.from(dirSet).join('/') + ")"; }
+      var rawDirStr = (s.stop_desc && s.stop_desc.trim()) ? s.stop_desc : (dirSet && dirSet.size > 0 ? Array.from(dirSet).join('/') : "一般路線");
       
-      S.stops.push({ id: s.stop_id, name: s.stop_name, fullName: s.stop_name + dirStr });
+      // Googleマップ同等に見やすくまとめた方面名称にクリーン化
+      var cleanDir = cleanDirectionName(rawDirStr, "一般路線");
+      
+      S.stops.push({ 
+        id: s.stop_id, 
+        name: s.stop_name, 
+        fullName: s.stop_name + " (" + cleanDir + ")" 
+      });
     });
     
     S.stops.sort((a,b)=>a.fullName.localeCompare(b.fullName,"ja"));
@@ -218,8 +238,8 @@ function onStopInput(el) {
   if(box) {
     var h = "";
     S.sStops.forEach(s=>{
-      h += '<div class="list-item" style="padding:10px;font-size:13px" onclick="selectStop(\''+s.id+'\',\''+e(s.fullName)+'\')">'
-      +'<span>🚏 '+e(s.fullName)+'</span><span style="color:'+T.sub+';font-size:11px">選択 ➔</span></div>';
+      h += '<div class="list-item" style="padding:12px;font-size:13px" onclick="selectStop(\''+s.id+'\',\''+e(s.fullName)+'\')">'
+      +'<span>🚏 '+e(s.fullName)+'</span><span style="color:'+T.acc+';font-weight:bold;font-size:12px">選択 ➔</span></div>';
     });
     box.innerHTML = h;
   }
@@ -238,7 +258,6 @@ async function selectStop(sid, fullStopName){
     var stList = parseCSV(d.files["stop_times.txt"]), tList = parseCSV(S.rawFiles["trips.txt"]), rList = parseCSV(S.rawFiles["routes.txt"]);
     var rMap = {}; rList.forEach(x=>{ rMap[x.route_id] = x.route_short_name || x.route_long_name; });
     
-    // 全便の生データを一時保存
     var myStops = stList.filter(x=>x.stop_id===sid);
     S.allTripsRaw = [];
     myStops.forEach(x => {
@@ -252,14 +271,14 @@ async function selectStop(sid, fullStopName){
           serviceId: tInfo.service_id,
           timeStr: tstr.substring(0,5),
           min: (+p[0])*60 + (+p[1]),
-          rname: rMap[tInfo.route_id] || "路線",
+          rname: rMap[tInfo.route_id] || tInfo.trip_headsign || "一般路線",
           seq: +x.stop_sequence
         });
       }
     });
     
     filterTimetable();
-    l("✅ 時刻表同期完了");
+    l("✅ 時刻表データ同期完了");
     render();
   } catch(err) { l("❌ 同期エラー: " + err.message); }
 }
@@ -279,11 +298,10 @@ function filterTimetable() {
   var now = new Date();
   var curMin = now.getHours()*60 + now.getMinutes();
   
-  // 今日かつ次発がある場合自動フォーカス
   if(S.timetableDayFilter === 'today') {
     var nextIdx = S.trips.findIndex(t => t.min >= curMin);
     if(nextIdx !== -1) S.ti = nextIdx;
-    else if(S.trips.length > 0) S.ti = -2; // 最終便通過
+    else if(S.trips.length > 0) S.ti = -2; // 当日分が終了した場合のフラグ
   } else {
     S.ti = S.trips.length > 0 ? 0 : -1;
   }
@@ -353,7 +371,6 @@ function sendNotification(title, body){
   else alert(title + "\n" + body);
 }
 
-// スライダー専用の超なめらか更新ロジック（画面全体の再レンダリングを回避）
 function updateSliderValue(val, isMode1) {
   if(isMode1) { S.ns = +val; document.getElementById("slider-val-txt").innerText = val + "個前の停留所"; }
   else { S.nm2 = +val; document.getElementById("slider-val-txt").innerText = val + "分前"; }
@@ -363,58 +380,61 @@ function render(){
   var app = document.getElementById("app");
   if(!app) return;
   
-  var html = '<div style="font-weight:800;font-size:24px;margin-bottom:18px;display:flex;align-items:center">'
+  var html = '<div style="font-weight:900;font-size:26px;margin-bottom:20px;display:flex;align-items:center;letter-spacing:-0.5px">'
   +'<span><span class="title-bus">🚌</span>Bus KURU</span></div>';
   
   if(S.sid && (S.ti >= 0 || S.ti === -2) && S.allTripsRaw.length > 0){
     var now = new Date();
     var curMin = now.getHours()*60 + now.getMinutes();
     
-    html += '<div class="card" style="background:'+T.card+';border-top:5px solid '+T.acc+'">'
-    +'<div style="display:flex;gap:8px;margin-bottom:14px">'
+    html += '<div class="card" style="background:'+T.card+';border-top:6px solid '+T.acc+'">'
+    +'<div style="display:flex;gap:8px;margin-bottom:16px">'
     +'<button onclick="S.co=null;S.sid=\'\';S.routeStops=[];render()" class="btn" style="background:'+T.btn+';color:'+T.bTxt+';padding:8px 14px;font-size:12px;border-radius:10px">🔄 会社変更</button>'
     +'<button onclick="S.sid=\'\';S.routeStops=[];render()" class="btn" style="background:'+T.btn+';color:'+T.bTxt+';padding:8px 14px;font-size:12px;border-radius:10px">🚏 バス停変更</button>'
     +'<button onclick="S.showTimetable=!S.showTimetable;render()" class="btn" style="background:'+T.acc+';color:white;padding:8px 14px;font-size:12px;border-radius:10px">📅 時刻表</button>'
     +'</div>'
     
-    +'<div style="font-size:18px;font-weight:bold;margin-bottom:4px">🚏 '+e(S.sname)+'</div>'
-    +'<div style="font-size:12px;color:'+T.sub+';margin-bottom:14px">'+e(S.co.name)+'</div>';
+    +'<div style="font-size:20px;font-weight:bold;margin-bottom:4px;letter-spacing:-0.3px">🚏 '+e(S.sname)+'</div>'
+    +'<div style="font-size:13px;color:'+T.sub+';margin-bottom:16px;font-weight:500">'+e(S.co.name)+'</div>';
     
-    // 曜日切り替えタブ付き時刻表
+    // 復元：Claudeオリジナルの見やすさを極めた美しい他便時刻表リスト
     if(S.showTimetable){
-      html += '<div style="background:rgba(0,0,0,0.04);padding:12px;border-radius:14px;margin-bottom:14px">'
+      html += '<div style="background:rgba(0,0,0,0.02);padding:12px;border-radius:18px;margin-bottom:16px;border:1px solid '+T.inputBorder+'">'
       +'<div class="day-tabs">'
       +'<button onclick="S.timetableDayFilter=\'today\';filterTimetable();render()" class="day-tab-btn" style="background:'+(S.timetableDayFilter==='today'?T.tabActive:'transparent')+';color:'+(S.timetableDayFilter==='today'?T.text:T.tabUnselected)+'">今日</button>'
-      +'<button onclick="S.timetableDayFilter=\'weekday\';filterTimetable();render()" class="day-tab-btn" style="background:'+(S.timetableDayFilter==='weekday'?T.tabActive:'transparent')+';color:'+(S.timetableDayFilter==='weekday'?T.text:T.tabUnselected)+'">平日ダイヤ</button>'
-      +'<button onclick="S.timetableDayFilter=\'holiday\';filterTimetable();render()" class="day-tab-btn" style="background:'+(S.timetableDayFilter==='holiday'?T.tabActive:'transparent')+';color:'+(S.timetableDayFilter==='holiday'?T.text:T.tabUnselected)+'">土日祝ダイヤ</button>'
+      +'<button onclick="S.timetableDayFilter=\'weekday\';filterTimetable();render()" class="day-tab-btn" style="background:'+(S.timetableDayFilter==='weekday'?T.tabActive:'transparent')+';color:'+(S.timetableDayFilter==='weekday'?T.text:T.tabUnselected)+'">平日</button>'
+      +'<button onclick="S.timetableDayFilter=\'holiday\';filterTimetable();render()" class="day-tab-btn" style="background:'+(S.timetableDayFilter==='holiday'?T.tabActive:'transparent')+';color:'+(S.timetableDayFilter==='holiday'?T.text:T.tabUnselected)+'">土日祝</button>'
       +'</div>'
-      +'<div style="max-height:150px;overflow-y:auto;background:rgba(255,255,255,0.3);border-radius:8px;padding:4px">';
+      +'<div style="max-height:220px;overflow-y:auto;padding-right:2px">';
       if(S.trips.length === 0) {
-        html += '<div style="font-size:12px;color:'+T.sub+';padding:10px;text-align:center">該当する運行便はありません</div>';
+        html += '<div style="font-size:13px;color:'+T.sub+';padding:20px;text-align:center">運行便はありません</div>';
       } else {
         S.trips.forEach((tk, idx) => {
-          html += '<div onclick="S.ti='+idx+';buildRouteLine();render()" style="display:flex;justify-content:space-between;padding:8px;font-size:12px;cursor:pointer;border-radius:6px;margin-bottom:2px;background:'+(S.ti===idx?T.acc:'transparent')+';color:'+(S.ti===idx?'#white':T.text)+'">'
-          +'<span>⏱️ '+tk.timeStr+'発</span><span style="font-size:11px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e(tk.rname)+'</span></div>';
+          var isSelected = S.ti === idx;
+          html += '<div class="timetable-row" style="background:'+(isSelected?T.acc:T.rowBg)+';color:'+(isSelected?'#ffffff':T.text)+'" onclick="S.ti='+idx+';buildRouteLine();render()">'
+          +'<span style="font-size:18px;font-weight:800;font-family:monospace;letter-spacing:0.5px;min-width:70px">⏱️ '+tk.timeStr+'</span>'
+          +'<span style="font-size:13px;font-weight:600;margin-left:16px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+e(tk.rname)+'</span>'
+          +'<span style="font-size:12px;opacity:0.6;margin-left:8px">➔</span></div>';
         });
       }
       html += '</div></div>';
     }
     
-    // 到着ステータス表示（翌日始発表示ロジック追加）
-    html += '<div style="background:'+T.btn+';padding:16px;border-radius:14px;text-align:center;margin-bottom:16px">';
+    // メイン案内表示（「次のバス 翌〇:〇〇」へ完全一本化＆視認性の高い大文字調整）
+    html += '<div style="background:'+T.btn+';padding:22px;border-radius:18px;text-align:center;margin-bottom:18px;box-shadow:inset 0 2px 4px rgba(0,0,0,0.01)">';
     if(S.ti >= 0) {
       var tr = S.trips[S.ti];
       var remMin = tr.min - curMin;
       if(remMin > 0) {
-        html += '<div style="font-size:26px;font-weight:900;color:'+T.acc+'">あと '+remMin+' 分で到着</div>'
-        +'<div style="font-size:12px;color:'+T.sub+';margin-top:4px">発車予定時間：'+tr.timeStr+'</div>';
+        html += '<div style="font-size:28px;font-weight:900;color:'+T.acc+';letter-spacing:-0.5px">あと '+remMin+' 分で到着</div>'
+        +'<div style="font-size:13px;color:'+T.sub+';margin-top:6px;font-weight:600">発車：'+tr.timeStr+' （'+e(tr.rname)+'）</div>';
       } else if(remMin === 0) {
-        html += '<div style="font-size:26px;font-weight:900;color:#ef4444">まもなく到着</div>';
+        html += '<div style="font-size:28px;font-weight:900;color:#ef4444;letter-spacing:-0.5px">まもなく到着</div>';
       } else {
         html += '<div style="font-size:16px;font-weight:700;color:'+T.sub+'">選択した便は通過しました</div>';
       }
     } else if(S.ti === -2) {
-      // 当日の最終便が終了している場合、明日の全データから最初の始発を探索
+      // 翌日の始発便スケジュールをカレンダーから自動探索
       var calRows = parseCSV(S.rawFiles["calendar.txt"]);
       var tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
       var tDay = tomorrow.getDay();
@@ -434,14 +454,12 @@ function render(){
       var tTrips = S.allTripsRaw.filter(t => tSids.length === 0 || tSids.includes(t.serviceId)).sort((a,b)=>a.min-b.min);
       var firstBusStr = tTrips.length > 0 ? tTrips[0].timeStr : "--:--";
       
-      html += '<div style="font-size:16px;font-weight:700;color:#ef4444;margin-bottom:4px">本日の最終便はすべて終了しました</div>'
-      +'<div style="font-size:13px;color:'+T.text+'">🎨 翌日の始発バス時刻：<strong style="color:'+T.acc+'">'+firstBusStr+'</strong></div>';
+      html += '<div style="font-size:28px;font-weight:900;color:'+T.acc+';letter-spacing:-0.5px">次のバス 翌 '+firstBusStr+'</div>';
     }
     html += '</div>';
     
-    // タイムラインルート
     if(S.ti >= 0 && S.routeStops.length > 0) {
-      html += '<div style="font-weight:700;font-size:13px;color:'+T.sub+';margin-bottom:14px">🚌 運行ルート現在地</div>'
+      html += '<div style="font-weight:700;font-size:13px;color:'+T.sub+';margin-bottom:14px;letter-spacing:0.5px">🚌 運行ルート現在地</div>'
       +'<div class="timeline">';
       S.routeStops.forEach(st => {
         var isTarget = st.id === S.sid;
@@ -452,14 +470,13 @@ function render(){
         html += '<div style="position:relative;margin-bottom:14px;font-size:13px;display:flex;justify-content:space-between;'+labelStyle+'">'
         +'<div class="'+nodeClass+'"></div>'
         +'<span style="max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(isBusHere?'🚌 ':'')+e(st.name)+(isTarget?' (乗車)':'')+'</span>'
-        +'<span style="color:'+T.sub+';font-size:11px">'+st.time+'</span>'
+        +'<span style="color:'+T.sub+';font-size:12px;font-family:monospace">'+st.time+'</span>'
         +'</div>';
       });
       html += '</div>';
       
       html += '<div style="border-top:1px dashed rgba(0,0,0,0.1);padding-top:14px;margin-top:14px">';
       if(S.co.hasRealtime) {
-        // 夜間モードでもハッキリ見える背景・文字色へ調整
         html += '<div class="mode-tabs" style="background:'+T.tabBg+'">'
         +'<button onclick="S.mode=1;render()" class="mode-tab-btn" style="background:'+(S.mode===1?T.tabActive:'transparent')+';color:'+(S.mode===1?T.text:T.tabUnselected)+'">停留所数カウント</button>'
         +'<button onclick="S.mode=2;render()" class="mode-tab-btn" style="background:'+(S.mode===2?T.tabActive:'transparent')+';color:'+(S.mode===2?T.text:T.tabUnselected)+'">到着前の分数</button>'
@@ -476,20 +493,20 @@ function render(){
       html += '</div>';
       
       var isRun = S.rid !== null;
-      html += '<button onclick="if(window.Notification)Notification.requestPermission()" class="btn" style="width:100%;padding:12px;background:'+T.btn+';color:'+T.bTxt+';margin-top:16px;margin-bottom:8px">🔔 スマホ通知を許可する</button>'
-      +'<button onclick="drt()" class="btn" style="width:100%;padding:16px;background:'+(isRun?'#ef4444':T.acc)+';color:white;font-size:15px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,0.15);animation:'+(isRun?'urgent 2s infinite':'none')+'">'+(isRun?'🛑 接近監視を停止する':'🚀 この便の接近通知をONにする')+'</button>';
+      html += '<button onclick="if(window.Notification)Notification.requestPermission()" class="btn" style="width:100%;padding:12px;background:'+T.btn+';color:'+T.bTxt+';margin-top:18px;margin-bottom:8px">🔔 スマホ通知を許可する</button>'
+      +'<button onclick="drt()" class="btn" style="width:100%;padding:16px;background:'+(isRun?'#ef4444':T.acc)+';color:white;font-size:15px;font-weight:700;box-shadow:0 6px 20px rgba(124,58,237,0.25);animation:'+(isRun?'urgent 2s infinite':'none')+'">'+(isRun?'🛑 接近監視を停止する':'🚀 この便の接近通知をONにする')+'</button>';
     }
     html += '</div>';
     
   } else {
-    // 1. バス会社検索カード
+    // 1. バス会社検索
     html += '<div class="card" style="background:'+T.card+'">'
-    +'<div style="font-weight:700;margin-bottom:10px;font-size:13px;color:'+T.sub+'">乗車するバス会社を探す</div>'
+    +'<div style="font-weight:700;margin-bottom:10px;font-size:13px;color:'+T.sub+';letter-spacing:0.5px">乗車するバス会社を探す</div>'
     +'<div style="display:flex;gap:8px"><input id="coSearch" type="text" class="input-text" style="margin-bottom:0" placeholder="例：十勝バス、北海道拓殖バス" value="'+e(S.searchQuery)+'" onkeydown="if(event.key===\'Enter\')searchCompany()">'
     +'<button onclick="searchCompany()" class="btn" style="background:'+T.acc+';color:white;padding:0 20px;border-radius:12px">検索</button></div>';
     
     if(S.searchResults.length > 0){
-      html += '<div style="margin-top:12px;max-height:160px;overflow-y:auto;border:1px solid '+T.inputBorder+';border-radius:12px;background:rgba(255,255,255,0.4)">';
+      html += '<div style="margin-top:12px;max-height:160px;overflow-y:auto;border:1px solid '+T.inputBorder+';border-radius:14px;background:rgba(255,255,255,0.4)">';
       S.searchResults.forEach(r=>{
         var badgeColor = r.hasRealtime ? '#10b981' : '#f59e0b';
         var badgeText = r.hasRealtime ? 'リアルタイム' : '時刻表のみ';
@@ -502,15 +519,15 @@ function render(){
     if(S.co) html += '<div style="margin-top:12px;font-weight:bold;color:'+T.acc+';font-size:13px">選択中：'+e(S.co.name)+'</div>';
     html += '</div>';
     
-    // 2. バス停選択カード
+    // 2. バス停選択
     if(S.co){
       html += '<div class="card" style="background:'+T.card+'">'
-      +'<div style="font-weight:700;margin-bottom:10px;font-size:13px;color:'+T.sub+'">乗車するバス停（方面・のりば）</div>'
+      +'<div style="font-weight:700;margin-bottom:10px;font-size:13px;color:'+T.sub+';letter-spacing:0.5px">乗車するバス停（方面・のりば）</div>'
       +'<input type="text" class="input-text" placeholder="バス停名を入力..." oninput="onStopInput(this)">'
-      +'<div id="stop-list-box" style="max-height:240px;overflow-y:auto;background:rgba(0,0,0,0.02);border-radius:12px;border:1px solid '+T.inputBorder+'">';
+      +'<div id="stop-list-box" style="max-height:260px;overflow-y:auto;background:rgba(0,0,0,0.01);border-radius:14px;border:1px solid '+T.inputBorder+'">';
       S.sStops.forEach(s=>{
         html += '<div class="list-item" style="padding:12px;font-size:13px" onclick="selectStop(\''+s.id+'\',\''+e(s.fullName)+'\')">'
-        +'<span>🚏 '+e(s.fullName)+'</span><span style="color:'+T.sub+';font-size:11px">選択 ➔</span></div>';
+        +'<span>🚏 '+e(s.fullName)+'</span><span style="color:'+T.acc+';font-weight:bold;font-size:12px">選択 ➔</span></div>';
       });
       html += '</div></div>';
     }
