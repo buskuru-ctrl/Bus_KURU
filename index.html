@@ -19,7 +19,6 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;min-height:100vh;tran
 <script>
 var W="https://cold-recipe-799d.kikucchao.workers.dev";
 
-// 時間帯テーマ
 function getTheme(){
   var h=new Date().getHours();
   if(h>=5&&h<8)return"dawn";
@@ -36,7 +35,6 @@ var TH={
   night:{bg:"#050d1a",card:"rgba(15,25,45,0.9)",border:"#1e293b",text:"#94a3b8",sub:"#334155",acc:"#7c3aed",hdr:"linear-gradient(135deg,#0f172a,#050d1a)",icon:"🌃",label:"深夜"}
 };
 
-// 曜日判定
 function getDayType(){
   var d=new Date().getDay();
   return(d===0||d===6)?"holiday":"weekday";
@@ -73,25 +71,20 @@ function csv(t){
   });
 }
 
-// calendar.txtから今日有効なservice_idを取得
 function getTodayServiceIds(calendarTxt,calendarDatesTxt){
   var today=new Date();
   var dayNames=["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
   var todayDay=dayNames[today.getDay()];
   var todayStr=today.getFullYear()+("0"+(today.getMonth()+1)).slice(-2)+("0"+today.getDate()).slice(-2);
   var ids=new Set();
-
   if(calendarTxt){
     csv(calendarTxt).forEach(function(r){
       if(r[todayDay]==="1"||r[todayDay]==="true"){
         var start=r.start_date||"",end=r.end_date||"";
-        if((!start||todayStr>=start)&&(!end||todayStr<=end)){
-          ids.add(r.service_id);
-        }
+        if((!start||todayStr>=start)&&(!end||todayStr<=end)){ids.add(r.service_id);}
       }
     });
   }
-
   if(calendarDatesTxt){
     csv(calendarDatesTxt).forEach(function(r){
       if(r.date===todayStr){
@@ -103,7 +96,6 @@ function getTodayServiceIds(calendarTxt,calendarDatesTxt){
   return ids;
 }
 
-// 曜日種別ごとのservice_idセットを返す
 function getServiceIdsByDayType(calendarTxt){
   var weekdayIds=new Set(),holidayIds=new Set();
   if(!calendarTxt)return{weekday:weekdayIds,holiday:holidayIds};
@@ -118,11 +110,8 @@ function getServiceIdsByDayType(calendarTxt){
 
 function buildRoute(f,sid,serviceIds){
   var st=csv(f["stops.txt"]),stm=csv(f["stop_times.txt"]),tr=csv(f["trips.txt"]),ro=csv(f["routes.txt"]);
-  // serviceIdsでフィルタ（指定がなければ全便）
   var validTripIds=new Set();
-  tr.forEach(function(t){
-    if(!serviceIds||serviceIds.size===0||serviceIds.has(t.service_id))validTripIds.add(t.trip_id);
-  });
+  tr.forEach(function(t){if(!serviceIds||serviceIds.size===0||serviceIds.has(t.service_id))validTripIds.add(t.trip_id);});
   var tids=[];
   stm.forEach(function(r){if(r.stop_id===sid&&validTripIds.has(r.trip_id)&&tids.indexOf(r.trip_id)<0)tids.push(r.trip_id);});
   if(!tids.length)return null;
@@ -133,7 +122,6 @@ function buildRoute(f,sid,serviceIds){
   var rid=(tr.filter(function(t){return t.trip_id===tid;})[0]||{}).route_id;
   var rr=ro.filter(function(r){return r.route_id===rid;})[0]||{};
   var tm={};tids.forEach(function(t){var a=stm.filter(function(r){return r.trip_id===t;}).sort(function(a,b){return+a.stop_sequence-+b.stop_sequence;});if(a[0])tm[t]=a[0].departure_time||a[0].arrival_time;});
-  // 停留所の到着時刻インデックス（この停留所に到着する時刻）
   var stopIdx=sl.findIndex(function(x){return x.id===sid;});
   var arrivalTimes=tids.slice(0,80).map(function(t){
     var row=stm.filter(function(r){return r.trip_id===t&&r.stop_id===sid;})[0];
@@ -142,7 +130,6 @@ function buildRoute(f,sid,serviceIds){
   return{name:rr.route_long_name||rr.route_short_name||"路線",stops:sl,schedules:sc,arrivalTimes:arrivalTimes,iv:3,tm:tm,stopIdx:stopIdx};
 }
 
-// 時刻表データ（平日・土日祝別）を構築
 function buildTimetable(f,sid){
   var stm=csv(f["stop_times.txt"]),tr=csv(f["trips.txt"]);
   var cal=f["calendar.txt"]||"";
@@ -181,12 +168,10 @@ function getNextBusInfo(){
   if(!S.route||!S.route.arrivalTimes||!S.route.arrivalTimes.length)return null;
   var now=S.now;
   var times=S.route.arrivalTimes;
-  // 今日の次の便
   for(var i=0;i<times.length;i++){
     var t=pt(times[i]);
     if(t>now)return{time:t,timeStr:times[i],isToday:true,mtt:t-now};
   }
-  // 翌日の始発
   return{time:pt(times[0])+24*60,timeStr:times[0],isToday:false,mtt:pt(times[0])+24*60-now};
 }
 
@@ -275,17 +260,13 @@ function selectStop(sid){
   fetch(W+"/?action=fetch_route&url="+encodeURIComponent(S.gurl)+"&stop_id="+encodeURIComponent(sid))
   .then(function(r){return r.json();}).then(function(d){
     if(d.error)throw new Error(d.error);
-    // 今日の曜日に合ったservice_idを取得
     var serviceIds=getTodayServiceIds(d.files["calendar.txt"],d.files["calendar_dates.txt"]);
-    // serviceIdsが空なら全便使用
     if(serviceIds.size===0)serviceIds=null;
     var res=buildRoute(d.files,sid,serviceIds);
     if(!res){
-      // 今日の便がない場合は全便で試す
       res=buildRoute(d.files,sid,null);
       if(!res)throw new Error("便が見つかりません");
     }
-    // 時刻表データを構築
     var timetable=buildTimetable(d.files,sid);
     if(d.files["trips.txt"]&&d.files["stop_times.txt"])S.stopsWithDest=buildStopsWithDest(d.files);
     S.cachedFiles=d.files;
@@ -328,13 +309,19 @@ function rsl(){
 }
 
 function goChangeCompany(){S.scr="welcome";S.sq="";S.sr=[];S.lm="";S.le="";S.ss=false;S.showTimetable=false;if(rtt)clearInterval(rtt);render();}
-function goChangeStop(){if(!S.gurl){goChangeCompany();return;}S.scr="stop_select";S.sf="";S.ss=false;S.showTimetable=false;render();}
+
+function goChangeStop(){
+  if(!S.gurl){goChangeCompany();return;}
+  if(S.cachedFiles&&S.cachedFiles["trips.txt"]&&S.cachedFiles["stop_times.txt"]){
+    S.stopsWithDest=buildStopsWithDest(S.cachedFiles);
+  }
+  S.scr="stop_select";S.sf="";S.ss=false;S.showTimetable=false;render();
+}
 
 function renderTimetable(T){
   if(!S.route||!S.route.timetable)return'<div style="color:'+T.sub+';font-size:13px;text-align:center;padding:16px">時刻表データなし</div>';
   var dt=S.timetableDayType;
   var times=S.route.timetable[dt]||[];
-  // 時間帯ごとにグループ化
   var groups={};
   times.forEach(function(t){
     var h=t.split(":")[0];
@@ -349,7 +336,7 @@ function renderTimetable(T){
   if(!times.length){
     html+='<div style="color:'+T.sub+';font-size:13px;text-align:center;padding:8px">この曜日の便はありません</div>';
   }else{
-    html+='<div style="font-size:11px;color:'+T.sub+';margin-bottom:8px">'+S.route.stops[S.ti]?e(S.route.stops[S.ti].name):""+' 到着時刻</div>';
+    html+='<div style="font-size:11px;color:'+T.sub+';margin-bottom:8px">'+(S.route.stops[S.ti]?e(S.route.stops[S.ti].name):"")+'到着時刻</div>';
     html+='<table style="width:100%;border-collapse:collapse">';
     Object.keys(groups).sort().forEach(function(h){
       var mins=groups[h];
@@ -459,7 +446,6 @@ function render(){
   var ri="";
   if(S.rid){var sa=S.lu?Math.round((Date.now()-S.lu)/1000):null;ri=S.re?'<span style="color:#ef4444;font-size:10px">● RTエラー</span>':sa!==null?'<span style="color:#22c55e;font-size:10px;animation:pulse 2s infinite">● '+(sa<60?sa+"秒前":Math.round(sa/60)+"分前")+'</span>':'<span style="color:'+T.sub+';font-size:10px">● 取得中</span>';}
 
-  // ヘッダー
   html+='<div style="background:'+T.hdr+';padding:14px 14px 0;margin:-14px -14px 0">'
   +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
   +'<span style="font-size:22px;animation:float 2.5s ease-in-out infinite">🚌</span>'
@@ -477,23 +463,19 @@ function render(){
   +'</div></div>'
   +'<div style="height:14px"></div>';
 
-  // 時刻表表示
-  if(S.showTimetable){
-    html+=renderTimetable(T);
-  }
+  if(S.showTimetable){html+=renderTimetable(T);}
 
   if(!S.rid){
     html+='<div style="background:'+T.card+';border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:'+T.sub+';border:1px solid '+T.border+';display:flex;align-items:center;gap:8px">'
     +'<span>ℹ️</span><span><strong style="color:'+T.text+'">時刻表ベース</strong>でバス位置を推定しています</span></div>';
   }
 
-  // 次のバスカード
   if(nx){
     var dl=nx.dl>0.5?'<div style="font-size:11px;color:#f97316;margin-top:3px">⚠️ '+Math.round(nx.dl)+'分遅れ</div>':nx.dl<-0.5?'<div style="font-size:11px;color:#22c55e;margin-top:3px">✓ '+Math.round(-nx.dl)+'分早め</div>':"";
     html+='<div style="background:'+(urg?"linear-gradient(135deg,#7f1d1d,#450a0a)":"linear-gradient(135deg,"+T.bg+","+T.card+")")+';border-radius:20px;padding:18px;border:1px solid '+(urg?"#ef4444":T.border)+';margin-bottom:14px;animation:'+(urg?"urgent 1.5s infinite":"none")+'">'
     +'<div style="display:flex;justify-content:space-between;align-items:flex-start">'
     +'<div><div style="font-size:11px;color:'+(urg?"#f87171":T.sub)+';margin-bottom:4px">'+(urg?"⚡ もうすぐ！":"次のバスまで")+'</div>'
-    +'<div><span style="font-size:48px;font-weight:900;color:'+(urg?"#fca5a5":T.text)+'">'+mins+'</span><span style="font-size:16px;color:'+(urg?"#f87171":T.sub)+'" > 分</span></div>'
+    +'<div><span style="font-size:48px;font-weight:900;color:'+(urg?"#fca5a5":T.text)+'">'+mins+'</span><span style="font-size:16px;color:'+(urg?"#f87171":T.sub)+'"> 分</span></div>'
     +'<div style="font-size:12px;color:'+T.sub+';margin-top:3px">'+ft(nx.times[S.ti])+'着'+(nx.rt?' <span style="color:#22c55e;font-size:10px">GPS</span>':'')+'</div>'
     +dl+'</div>'
     +'<div style="text-align:right"><div style="font-size:11px;color:'+T.sub+';margin-bottom:3px">乗車停留所</div>'
@@ -505,7 +487,6 @@ function render(){
     +'<div style="display:flex;justify-content:space-between;font-size:10px;color:'+T.sub+';margin-top:3px">'
     +'<span>'+(S.route.stops[0]?e(S.route.stops[0].name):"")+'</span><span>'+(S.route.stops[S.route.stops.length-1]?e(S.route.stops[S.route.stops.length-1].name):"")+'</span></div></div>';
   }else{
-    // 運行なし → 次の便を表示
     var nextStr="";
     if(nextInfo){
       nextStr='<div style="font-size:13px;color:'+T.acc+';margin-top:8px;font-weight:600">'
@@ -521,7 +502,6 @@ function render(){
     +'</div>';
   }
 
-  // タイムライン
   html+='<div style="background:'+T.card+';border-radius:16px;padding:14px 12px;border:1px solid '+T.border+';margin-bottom:14px">'
   +'<div style="font-size:11px;color:'+T.sub+';margin-bottom:10px;padding-left:6px;display:flex;justify-content:space-between">'
   +'<span>バスの現在位置'+(buses[0]&&buses[0].rt?' <span style="color:#22c55e">GPS</span>':' <span style="color:'+T.sub+'">推定</span>')+'</span>'
