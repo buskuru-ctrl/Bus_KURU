@@ -50,6 +50,7 @@ var S={
   showTimetable:false,timetableDayType:"weekday",
   rv:[],rd:{},re:"",lu:0,
   mn:"",ms:"",mt:"",mi:"3",
+  favorites:[],
   theme:getTheme(),dayType:getDayType()
 };
 function gn(){var n=new Date();return n.getHours()*60+n.getMinutes()+n.getSeconds()/60;}
@@ -59,6 +60,8 @@ function pt(s){if(!s)return 0;var p=s.split(":");return+p[0]*60+(+p[1])+(p[2]?+p
 function ft(m){var h=Math.floor(m/60)%24,n=Math.round(m%60);return(h<10?"0":"")+h+":"+(n<10?"0":"")+n;}
 function sv(c){try{localStorage.setItem("bk9",JSON.stringify(c));}catch(x){}}
 function lv(){try{var s=localStorage.getItem("bk9");return s?JSON.parse(s):null;}catch(x){return null;}}
+function svFav(){try{localStorage.setItem("bk_fav",JSON.stringify(S.favorites));}catch(x){}}
+function lvFav(){try{var s=localStorage.getItem("bk_fav");return s?JSON.parse(s):[];}catch(x){return[];}}
 
 function csv(t){
   if(!t)return[];
@@ -324,7 +327,44 @@ function goChangeStop(){
   S.scr="stop_select";S.sf="";S.ss=false;S.showTimetable=false;render();
 }
 
-function renderTimetable(T){
+function favKey(){
+  return(S.gurl||"")+"|"+(S.route&&S.route.stopId?S.route.stopId:"");
+}
+function isFav(){
+  var k=favKey();
+  return S.favorites.some(function(f){return f.key===k;});
+}
+function toggleFav(){
+  if(!S.route||!S.gurl)return;
+  var k=favKey();
+  var idx=S.favorites.findIndex(function(f){return f.key===k;});
+  if(idx>=0){
+    S.favorites.splice(idx,1);
+  }else{
+    S.favorites.push({
+      key:k,
+      companyName:S.companyName||"",
+      routeName:S.route.name||"",
+      stopName:S.route.stops[S.ti]?S.route.stops[S.ti].name:"",
+      gurl:S.gurl,
+      rid:S.rid,
+      hasRT:S.hasRT,
+      stopId:S.route.stopId||(S.route.stops[S.ti]?S.route.stops[S.ti].id:"")
+    });
+  }
+  svFav();render();
+}
+function openFav(i){
+  var f=S.favorites[i];
+  if(!f)return;
+  S.gurl=f.gurl;S.rid=f.rid;S.hasRT=f.hasRT;S.companyName=f.companyName;
+  S.scr="loading";S.lm="時刻表を読み込み中…";render();
+  selectStop(f.stopId);
+}
+function removeFav(i,ev){
+  if(ev)ev.stopPropagation();
+  S.favorites.splice(i,1);svFav();render();
+}function renderTimetable(T){
   if(!S.route||!S.route.timetable)return'<div style="color:'+T.sub+';font-size:13px;text-align:center;padding:16px">時刻表データなし</div>';
   var dt=S.timetableDayType;
   var times=S.route.timetable[dt]||[];
@@ -386,6 +426,29 @@ function render(){
     +'</div>';return;
   }
 
+  if(S.scr==="favorites"){
+    var hf='<button onclick="S.scr=\'welcome\';render()" class="btn" style="background:'+T.card+';border:1px solid '+T.border+';padding:6px 12px;color:'+T.sub+';margin-bottom:14px;display:block">← 戻る</button>'
+    +'<div style="font-size:18px;font-weight:800;margin-bottom:14px;color:'+T.text+'">⭐ お気に入り</div>';
+    if(!S.favorites.length){
+      hf+='<div style="background:'+T.card+';border-radius:14px;border:1px solid '+T.border+';padding:24px;text-align:center;color:'+T.sub+';font-size:13px">まだお気に入りがありません<br>モニター画面の⭐ボタンで登録できます</div>';
+    }else{
+      hf+='<div style="background:'+T.card+';border-radius:14px;border:1px solid '+T.border+';overflow:hidden">';
+      S.favorites.forEach(function(f,i){
+        hf+='<div onclick="openFav('+i+')" style="padding:14px;border-bottom:'+(i<S.favorites.length-1?"1px solid "+T.border:"none")+';cursor:pointer;display:flex;align-items:center;gap:10px">'
+        +'<div style="font-size:20px">🚌</div>'
+        +'<div style="flex:1">'
+        +'<div style="font-size:13px;color:'+T.sub+'">'+e(f.companyName)+' ・ '+e(f.routeName)+'</div>'
+        +'<div style="font-size:15px;font-weight:600;color:'+T.text+'">'+e(f.stopName)+'</div>'
+        +'</div>'
+        +'<button onclick="removeFav('+i+',event)" style="background:none;border:none;color:'+T.sub+';font-size:18px;cursor:pointer;padding:4px 8px">✕</button>'
+        +'</div>';
+      });
+      hf+='</div>';
+    }
+    app.innerHTML=hf;
+    return;
+  }
+
   if(S.scr==="welcome"){
     var h2='<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px">'
     +'<div style="text-align:center;margin-bottom:24px">'
@@ -393,8 +456,11 @@ function render(){
     +'<div style="font-size:13px;font-weight:600;margin-bottom:2px;color:'+T.sub+'">バス接近通知アプリ</div>'
     +'<div style="font-size:24px;font-weight:800;margin-bottom:6px;color:'+T.text+'">バスクル</div>'
     +'<div style="font-size:13px;color:'+T.sub+';line-height:1.8">バス会社名を入力するだけで<br>時刻表を自動取得します</div>'
-    +'</div><div style="width:100%;max-width:380px">'
-    +'<div style="display:flex;gap:8px;margin-bottom:10px">'
+    +'</div><div style="width:100%;max-width:380px">';
+    if(S.favorites.length){
+      h2+='<button onclick="S.scr=\'favorites\';render()" class="btn" style="width:100%;padding:12px;background:linear-gradient(135deg,#f59e0b,#f97316);color:white;font-size:14px;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px">⭐ お気に入り（'+S.favorites.length+'件）</button>';
+    }
+    h2+='<div style="display:flex;gap:8px;margin-bottom:10px">'
     +'<input id="sq" type="text" style="flex:1;border-radius:12px;padding:12px 14px;font-size:15px;background:'+T.card+';border:1px solid '+T.border+';color:'+T.text+';font-family:inherit;outline:none" placeholder="バス会社名（例：〇〇バス、△△交通）" value="'+e(S.sq)+'">'
     +'<button onclick="S.sq=document.getElementById(\'sq\').value;hs2()" class="btn" style="padding:12px 16px;background:'+T.acc+';color:white;font-size:15px;flex-shrink:0">検索</button>'
     +'</div>';
@@ -461,6 +527,7 @@ function render(){
   +'<span style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e(S.route.name)+'</span>'
   +(!S.rid?'<span style="color:rgba(255,255,255,0.5);font-size:10px">○ 時刻表ベース</span>':ri)
   +'</div></div>'
+  +'<button onclick="toggleFav()" style="background:none;border:none;font-size:24px;cursor:pointer;padding:0 4px;line-height:1">'+(isFav()?"⭐":"☆")+'</button>'
   +'<div style="font-size:22px;font-weight:800;color:white">'+ft(S.now)+'</div>'
   +'</div>'
   +'<div style="display:flex;gap:6px;padding-bottom:12px">'
@@ -565,13 +632,14 @@ function render(){
 }
 
 try{["buskuru","buskuru2","buskuru3","buskuru4","bk5","bk6","bk7","bk8"].forEach(function(k){localStorage.removeItem(k);});}catch(x){}
+S.favorites=lvFav();
 var cfg=lv();
 if(cfg&&cfg.route){
   S.route=cfg.route;S.ti=cfg.ti||0;
   S.gurl=cfg.gurl||null;S.rid=cfg.rid||null;S.hasRT=cfg.hasRT||false;
   S.nm=cfg.nm||"stops";S.ns=cfg.ns||2;S.nm2=cfg.nm2||5;
   S.companyName=cfg.companyName||"";
-  S.scr="monitor";if(S.rid)srt();
+  S.scr="welcome";if(S.rid){}
 }
 render();
 </script>
