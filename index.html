@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>バス接近通知 - Bus KURU</title>
+<title>バスクル - Bus KURU</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;min-height:100vh;transition:background 1s,color 0.5s}
@@ -42,7 +42,7 @@ function getDayType(){
 
 var S={
   scr:"welcome",route:null,ti:0,
-  gurl:null,rid:null,hasRT:false,
+  gurl:null,rid:null,hasRT:false,companyName:"",
   stops:[],stopsWithDest:{},sf:"",cachedFiles:null,
   sq:"",sr:[],lm:"",le:"",
   nm:"stops",ns:2,nm2:5,
@@ -234,6 +234,7 @@ function hs2(){
 function selectCompany(i){
   var co=S.sr[i];
   S.le="";S.sr=[];S.scr="loading";S.lm="時刻表を探しています…";render();
+  S.companyName=co.name||"";
   var p;
   if(co.source==="known"){
     p=fetch(W+"/?action=find_zip&id="+co.id).then(function(r){return r.json();}).then(function(d){
@@ -273,7 +274,7 @@ function selectStop(sid){
     var ns2=res.stops.map(function(x){return{id:x.id,name:x.name};});
     var ni=0;for(var i=0;i<res.stops.length;i++){if(res.stops[i].id===sid){ni=i;break;}}
     var nr={name:res.name,stops:ns2,schedules:res.schedules,arrivalTimes:res.arrivalTimes,iv:3,tm:res.tm,stopId:sid,timetable:timetable};
-    sv({route:nr,ti:ni,gurl:S.gurl,rid:S.rid,hasRT:S.hasRT,nm:S.nm,ns:S.ns,nm2:S.nm2});
+    sv({route:nr,ti:ni,gurl:S.gurl,rid:S.rid,hasRT:S.hasRT,nm:S.nm,ns:S.ns,nm2:S.nm2,companyName:S.companyName});
     S.route=nr;S.ti=ni;S.nids=[];S.scr="monitor";
     if(S.rid)srt();render();
   }).catch(function(ex){S.le=ex.message;S.scr="stop_select";render();});
@@ -284,7 +285,8 @@ function am(){
   var sc2=S.mt.split("\n").map(function(x){return x.trim();}).filter(function(x){return/^\d{1,2}:\d{2}$/.test(x);});
   if(stops.length<2){alert("停留所を2つ以上");return;}if(!sc2.length){alert("時刻表を入力してください");return;}
   var nr={name:S.mn||"手動入力路線",stops:stops,schedules:sc2,arrivalTimes:sc2,iv:parseFloat(S.mi)||3};
-  sv({route:nr,ti:stops.length-1,nm:S.nm,ns:S.ns,nm2:S.nm2});
+  S.companyName="";
+  sv({route:nr,ti:stops.length-1,nm:S.nm,ns:S.ns,nm2:S.nm2,companyName:""});
   S.route=nr;S.ti=stops.length-1;S.nids=[];S.rid=null;S.hasRT=false;S.scr="monitor";render();
 }
 
@@ -388,7 +390,8 @@ function render(){
     var h2='<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px">'
     +'<div style="text-align:center;margin-bottom:24px">'
     +'<div style="font-size:48px;margin-bottom:10px;animation:float 2.5s ease-in-out infinite">🚌</div>'
-    +'<div style="font-size:20px;font-weight:800;margin-bottom:6px;color:'+T.text+'">バス接近通知</div>'
+    +'<div style="font-size:13px;font-weight:600;margin-bottom:2px;color:'+T.sub+'">バス接近通知アプリ</div>'
+    +'<div style="font-size:24px;font-weight:800;margin-bottom:6px;color:'+T.text+'">バスクル</div>'
     +'<div style="font-size:13px;color:'+T.sub+';line-height:1.8">バス会社名を入力するだけで<br>時刻表を自動取得します</div>'
     +'</div><div style="width:100%;max-width:380px">'
     +'<div style="display:flex;gap:8px;margin-bottom:10px">'
@@ -453,7 +456,7 @@ function render(){
   html+='<div style="background:'+T.hdr+';padding:14px 14px 0;margin:-14px -14px 0">'
   +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
   +'<span style="font-size:22px;animation:float 2.5s ease-in-out infinite">🚌</span>'
-  +'<div style="flex:1"><div style="font-size:15px;font-weight:700;color:white">バス接近通知</div>'
+  +'<div style="flex:1"><div style="font-size:15px;font-weight:700;color:white">'+(S.companyName?e(S.companyName):"バスクル")+'</div>'
   +'<div style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px;display:flex;gap:6px;align-items:center">'
   +'<span style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e(S.route.name)+'</span>'
   +(!S.rid?'<span style="color:rgba(255,255,255,0.5);font-size:10px">○ 時刻表ベース</span>':ri)
@@ -535,7 +538,7 @@ function render(){
     +'<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:'+T.text+'">🎯 乗車停留所</div>'
     +'<div style="display:flex;flex-direction:column;gap:5px">';
     S.route.stops.forEach(function(s,i){
-      html+='<button onclick="S.ti='+i+';S.nids=[];sv({route:S.route,ti:'+i+',gurl:S.gurl,rid:S.rid,hasRT:S.hasRT,nm:S.nm,ns:S.ns,nm2:S.nm2});render()" style="padding:8px 12px;background:'+(S.ti===i?T.acc+"22":T.bg)+';border:1px solid '+(S.ti===i?T.acc:T.border)+';border-radius:8px;color:'+(S.ti===i?T.acc:T.sub)+';text-align:left;font-size:13px;cursor:pointer;font-family:inherit">'
+      html+='<button onclick="S.ti='+i+';S.nids=[];sv({route:S.route,ti:'+i+',gurl:S.gurl,rid:S.rid,hasRT:S.hasRT,nm:S.nm,ns:S.ns,nm2:S.nm2,companyName:S.companyName});render()" style="padding:8px 12px;background:'+(S.ti===i?T.acc+"22":T.bg)+';border:1px solid '+(S.ti===i?T.acc:T.border)+';border-radius:8px;color:'+(S.ti===i?T.acc:T.sub)+';text-align:left;font-size:13px;cursor:pointer;font-family:inherit">'
       +'<span style="opacity:0.4;margin-right:6px;font-size:10px">'+(i+1)+'</span>'+e(s.name)+'</button>';
     });
     html+='</div></div>'
@@ -567,6 +570,7 @@ if(cfg&&cfg.route){
   S.route=cfg.route;S.ti=cfg.ti||0;
   S.gurl=cfg.gurl||null;S.rid=cfg.rid||null;S.hasRT=cfg.hasRT||false;
   S.nm=cfg.nm||"stops";S.ns=cfg.ns||2;S.nm2=cfg.nm2||5;
+  S.companyName=cfg.companyName||"";
   S.scr="monitor";if(S.rid)srt();
 }
 render();
