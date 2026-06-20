@@ -292,7 +292,11 @@ function rsl(){
   var el=document.getElementById("sl");if(!el)return;
   var T=TH[S.theme];
   var f=S.sf;
-  var sh=(f?S.stops.filter(function(x){return(x.stop_name&&x.stop_name.indexOf(f)>=0)||(x.stop_id&&x.stop_id.indexOf(f)>=0);}):S.stops).slice(0,200);
+  if(!f||f.trim().length<2){
+    el.innerHTML='<div style="background:'+T.card+';border-radius:14px;border:1px solid '+T.border+';padding:24px;text-align:center;color:'+T.sub+';font-size:13px">停留所名を2文字以上入力してください</div>';
+    return;
+  }
+  var sh=S.stops.filter(function(x){return(x.stop_name&&x.stop_name.indexOf(f)>=0)||(x.stop_id&&x.stop_id.indexOf(f)>=0);}).slice(0,200);
   var h='<div style="background:'+T.card+';border-radius:14px;border:1px solid '+T.border+';overflow:hidden">';
   if(!sh.length)h+='<div style="padding:16px;text-align:center;color:'+T.sub+'">該当なし</div>';
   sh.forEach(function(x,i){
