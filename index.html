@@ -346,8 +346,11 @@ function goChangeCompany(){S.scr="welcome";S.sq="";S.sr=[];S.lm="";S.le="";S.ss=
 
 function goChangeStop(){
   if(!S.gurl){goChangeCompany();return;}
-  if(S.cachedFiles&&S.cachedFiles["trips.txt"]&&S.cachedFiles["stop_times.txt"]){
-    S.stopsWithDest=buildStopsWithDest(S.cachedFiles);
+  if(S.cachedFiles){
+    S.stops=csv(S.cachedFiles["stops.txt"]||"");
+    if(S.cachedFiles["trips.txt"]&&S.cachedFiles["stop_times.txt"]){
+      S.stopsWithDest=buildStopsWithDest(S.cachedFiles);
+    }
   }
   S.scr="stop_select";S.sf="";S.ss=false;S.showTimetable=false;render();
 }
