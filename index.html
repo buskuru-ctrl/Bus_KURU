@@ -212,7 +212,7 @@ function drt(){
 setInterval(function(){
   S.now=gn();S.theme=getTheme();S.dayType=getDayType();
   cn();if(S.scr==="monitor")render();
-},30000);
+},10000);
 
 function playAlarm(){
   try{
@@ -241,8 +241,18 @@ function cn(){
   gb().forEach(function(b){
     if(S.nids.indexOf(b.id)>=0)return;
     var f=false,msg="";
-    if(S.nm==="stops"){var at=S.ti-S.ns;if(at>=0&&b.pos>=at&&b.pos<at+1.2){f=true;msg="バスが"+S.ns+"つ前「"+(S.route.stops[at]?S.route.stops[at].name:"")+"」に来ました！"+(b.dl>0.5?"（"+Math.round(b.dl)+"分遅れ）":"")+"準備して🏃";}}
-    else{if(b.mtt<=S.nm2&&b.mtt>0){f=true;msg="バスがあと約"+Math.ceil(b.mtt)+"分で来ます！"+(b.dl>0.5?"（"+Math.round(b.dl)+"分遅れ）":"")+"準備して🏃";}}
+    if(S.nm==="stops"){
+      var at=S.ti-S.ns;
+      if(at>=0&&b.pos>=at-0.3&&b.pos<at+1.5){
+        f=true;
+        msg="バスが"+S.ns+"つ前「"+(S.route.stops[at]?S.route.stops[at].name:"")+"」に来ました！"+(b.dl>0.5?"（"+Math.round(b.dl)+"分遅れ）":"")+"準備して🏃";
+      }
+    }else{
+      if(b.mtt<=S.nm2+0.5&&b.mtt>0){
+        f=true;
+        msg="バスがあと約"+Math.ceil(b.mtt)+"分で来ます！"+(b.dl>0.5?"（"+Math.round(b.dl)+"分遅れ）":"")+"準備して🏃";
+      }
+    }
     if(f){
       S.nids.push(b.id);S.ban=msg;
       playAlarm();
