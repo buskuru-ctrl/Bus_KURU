@@ -214,6 +214,28 @@ setInterval(function(){
   cn();if(S.scr==="monitor")render();
 },30000);
 
+function playAlarm(){
+  try{
+    var ctx=new(window.AudioContext||window.webkitAudioContext)();
+    function beep(freq,start,dur){
+      var o=ctx.createOscillator();
+      var g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.frequency.value=freq;
+      o.type="sine";
+      g.gain.setValueAtTime(0,ctx.currentTime+start);
+      g.gain.linearRampToValueAtTime(0.4,ctx.currentTime+start+0.02);
+      g.gain.linearRampToValueAtTime(0,ctx.currentTime+start+dur);
+      o.start(ctx.currentTime+start);
+      o.stop(ctx.currentTime+start+dur+0.05);
+    }
+    beep(880,0,0.15);
+    beep(1100,0.2,0.15);
+    beep(880,0.4,0.15);
+    beep(1100,0.6,0.3);
+  }catch(ex){}
+}
+
 function cn(){
   if(S.scr!=="monitor"||!S.route)return;
   gb().forEach(function(b){
@@ -221,11 +243,14 @@ function cn(){
     var f=false,msg="";
     if(S.nm==="stops"){var at=S.ti-S.ns;if(at>=0&&b.pos>=at&&b.pos<at+1.2){f=true;msg="バスが"+S.ns+"つ前「"+(S.route.stops[at]?S.route.stops[at].name:"")+"」に来ました！"+(b.dl>0.5?"（"+Math.round(b.dl)+"分遅れ）":"")+"準備して🏃";}}
     else{if(b.mtt<=S.nm2&&b.mtt>0){f=true;msg="バスがあと約"+Math.ceil(b.mtt)+"分で来ます！"+(b.dl>0.5?"（"+Math.round(b.dl)+"分遅れ）":"")+"準備して🏃";}}
-    if(f){S.nids.push(b.id);S.ban=msg;if(window.Notification&&Notification.permission==="granted")new Notification("🚌",{body:msg});render();}
+    if(f){
+      S.nids.push(b.id);S.ban=msg;
+      playAlarm();
+      if(window.Notification&&Notification.permission==="granted")new Notification("🚌",{body:msg});
+      render();
+    }
   });
-}
-
-function hs2(){
+}function hs2(){
   if(!S.sq.trim())return;
   S.le="";S.sr=[];S.lm="検索中…";render();
   fetch(W+"/?action=search&q="+encodeURIComponent(S.sq)).then(function(r){return r.json();}).then(function(d){
@@ -364,7 +389,9 @@ function openFav(i){
 function removeFav(i,ev){
   if(ev)ev.stopPropagation();
   S.favorites.splice(i,1);svFav();render();
-}function renderTimetable(T){
+}
+
+function renderTimetable(T){
   if(!S.route||!S.route.timetable)return'<div style="color:'+T.sub+';font-size:13px;text-align:center;padding:16px">時刻表データなし</div>';
   var dt=S.timetableDayType;
   var times=S.route.timetable[dt]||[];
@@ -624,7 +651,7 @@ function render(){
       +'<input type="range" style="accent-color:'+T.acc+'" min="1" max="15" value="'+S.nm2+'" onchange="S.nm2=+this.value;render()" oninput="S.nm2=+this.value;render()">';
     }
     html+='</div>'
-    +'<button onclick="if(window.Notification)Notification.requestPermission()" class="btn" style="width:100%;padding:11px;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white;margin-bottom:8px">🔔 スマホ通知を許可する</button>';
+    +'<button onclick="Notification.requestPermission().then(function(r){if(r===\'granted\')alert(\'通知が許可されました！\');else alert(\'通知が許可されませんでした。スマホの設定をご確認ください。\');})" class="btn" style="width:100%;padding:11px;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white;margin-bottom:8px">🔔 スマホ通知を許可する</button>';
     if(S.rid)html+='<button onclick="drt()" class="btn" style="width:100%;padding:11px;background:'+T.card+';border:1px solid '+T.border+';color:'+T.acc+';margin-bottom:8px">🔃 位置情報を今すぐ更新</button>';
     html+='</div>';
   }
