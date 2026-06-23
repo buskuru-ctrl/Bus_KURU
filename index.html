@@ -670,7 +670,7 @@ function render(){
     +'<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:'+T.text+'">🎯 乗車停留所</div>'
     +'<div style="display:flex;flex-direction:column;gap:5px">';
     S.route.stops.forEach(function(s,i){
-      html+='<button onclick="S.ti='+i+';S.nids=[];sv({route:S.route,ti:'+i+',gurl:S.gurl,rid:S.rid,hasRT:S.hasRT,nm:S.nm,ns:S.ns,nm2:S.nm2,companyName:S.companyName});render()" style="padding:8px 12px;background:'+(S.ti===i?T.acc+"22":T.bg)+';border:1px solid '+(S.ti===i?T.acc:T.border)+';border-radius:8px;color:'+(S.ti===i?T.acc:T.sub)+';text-align:left;font-size:13px;cursor:pointer;font-family:inherit">'
+      html+=+'<button onclick="S.ti='+i+';S.nids=[];if(S.cachedFiles){var tt=buildTimetable(S.cachedFiles,\''+s.id+'\');S.route.timetable=tt;}sv({route:S.route,ti:'+i+',gurl:S.gurl,rid:S.rid,hasRT:S.hasRT,nm:S.nm,ns:S.ns,nm2:S.nm2,companyName:S.companyName});render()" style="padding:8px 12px;background:'+(S.ti===i?T.acc+"22":T.bg)+';border:1px solid '+(S.ti===i?T.acc:T.border)+';border-radius:8px;color:'+(S.ti===i?T.acc:T.sub)+';text-align:left;font-size:13px;cursor:pointer;font-family:inherit">'
       +'<span style="opacity:0.4;margin-right:6px;font-size:10px">'+(i+1)+'</span>'+e(s.name)+'</button>';
     });
     html+='</div></div>'
