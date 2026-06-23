@@ -111,6 +111,32 @@ function getServiceIdsByDayType(calendarTxt){
   return{weekday:weekdayIds,holiday:holidayIds};
 }
 
+// 2点間の距離をメートルで計算（簡易版）
+function calcDist(lat1,lon1,lat2,lon2){
+  var R=6371000;
+  var dLat=(lat2-lat1)*Math.PI/180;
+  var dLon=(lon2-lon1)*Math.PI/180;
+  var a=Math.sin(dLat/2)*Math.sin(dLat/2)+
+    Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+    Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+// GPSの緯度経度から路線上の位置（0〜stops.length-1）を推定
+function gpsToRoutePos(lat,lon,stops){
+  if(!stops||!stops.length)return -1;
+  var bestIdx=-1,bestDist=99999;
+  for(var i=0;i<stops.length;i++){
+    if(!stops[i].lat||!stops[i].lon)continue;
+    var d=calcDist(lat,lon,stops[i].lat,stops[i].lon);
+    if(d<bestDist){bestDist=d;bestIdx=i;}
+  }
+  if(bestIdx<0)return -1;
+  // 最も近い停留所が1000m以上離れていたら無効
+  if(bestDist>1000)return -1;
+  return bestIdx;
+}
+
 function buildRoute(f,sid,serviceIds){
   var st=csv(f["stops.txt"]),stm=csv(f["stop_times.txt"]),tr=csv(f["trips.txt"]),ro=csv(f["routes.txt"]);
   var validTripIds=new Set();
@@ -120,7 +146,16 @@ function buildRoute(f,sid,serviceIds){
   if(!tids.length)return null;
   var tid=tids[0];
   var ts=stm.filter(function(r){return r.trip_id===tid;}).sort(function(a,b){return+a.stop_sequence-+b.stop_sequence;});
-  var sl=ts.map(function(r){var s=st.filter(function(x){return x.stop_id===r.stop_id;})[0];return{id:r.stop_id,name:s?s.stop_name:r.stop_id};});
+  // 停留所に緯度経度を含める
+  var sl=ts.map(function(r){
+    var s=st.filter(function(x){return x.stop_id===r.stop_id;})[0];
+    return{
+      id:r.stop_id,
+      name:s?s.stop_name:r.stop_id,
+      lat:s&&s.stop_lat?parseFloat(s.stop_lat):null,
+      lon:s&&s.stop_lon?parseFloat(s.stop_lon):null
+    };
+  });
   var sc=tids.slice(0,80).map(function(t){var a=stm.filter(function(r){return r.trip_id===t;}).sort(function(a,b){return+a.stop_sequence-+b.stop_sequence;});return a[0]?(a[0].departure_time||a[0].arrival_time):null;}).filter(Boolean).sort();
   var rid=(tr.filter(function(t){return t.trip_id===tid;})[0]||{}).route_id;
   var rr=ro.filter(function(r){return r.route_id===rid;})[0]||{};
@@ -176,22 +211,41 @@ function getNextBusInfo(){
     if(t>now)return{time:t,timeStr:times[i],isToday:true,mtt:t-now};
   }
   return{time:pt(times[0])+24*60,timeStr:times[0],isToday:false,mtt:pt(times[0])+24*60-now};
-}
-
-function gb(){
+}function gb(){
   if(!S.route)return[];
   var iv=S.route.iv||3.5,now=S.now;
-  if(S.rid&&S.rv.length>0&&S.route.tm){
+  // GPSデータがあり、停留所に緯度経度がある場合はGPS座標で位置を特定
+  if(S.rid&&S.rv.length>0){
     var rb=[];
-    S.rv.forEach(function(v){
-      if(!v.tripId||!S.route.tm[v.tripId])return;
-      var dep=S.route.tm[v.tripId],dl=(S.rd[v.tripId]||0)/60;
-      var times=ct(dep,S.route.stops.length,iv).map(function(t){return t+dl;});
-      var mtt=times[S.ti]-now;
-      if(mtt<-5||mtt>120)return;
-      rb.push({id:"r-"+v.tripId,times:times,pos:gp(times,now),mtt:mtt,dl:dl,rt:true});
-    });
-    if(rb.length){rb.sort(function(a,b){return a.mtt-b.mtt;});return rb;}
+    var stopsHaveCoords=S.route.stops&&S.route.stops.some(function(s){return s.lat&&s.lon;});
+    if(stopsHaveCoords){
+      S.rv.forEach(function(v){
+        if(!v.lat||!v.lon)return;
+        var pos=gpsToRoutePos(v.lat,v.lon,S.route.stops);
+        if(pos<0)return;
+        var dl=(S.rd[v.tripId]||0)/60;
+        // 到着予定時刻を推定（乗車停留所までの残り停留所数×停留所間隔）
+        var stopsLeft=S.ti-pos;
+        var mtt=stopsLeft*iv+dl;
+        if(mtt<-5||mtt>120)return;
+        rb.push({id:"r-"+v.id,times:[],pos:pos,mtt:mtt,dl:dl,rt:true,lat:v.lat,lon:v.lon});
+      });
+      if(rb.length){
+        rb.sort(function(a,b){return a.mtt-b.mtt;});
+        return rb;
+      }
+    }else{
+      // 緯度経度がない場合は従来のtripId照合
+      S.rv.forEach(function(v){
+        if(!v.tripId||!S.route.tm[v.tripId])return;
+        var dep=S.route.tm[v.tripId],dl=(S.rd[v.tripId]||0)/60;
+        var times=ct(dep,S.route.stops.length,iv).map(function(t){return t+dl;});
+        var mtt=times[S.ti]-now;
+        if(mtt<-5||mtt>120)return;
+        rb.push({id:"r-"+v.tripId,times:times,pos:gp(times,now),mtt:mtt,dl:dl,rt:true});
+      });
+      if(rb.length){rb.sort(function(a,b){return a.mtt-b.mtt;});return rb;}
+    }
   }
   return S.route.schedules.map(function(dep,i){
     var times=ct(dep,S.route.stops.length,iv);
@@ -260,7 +314,9 @@ function cn(){
       render();
     }
   });
-}function hs2(){
+}
+
+function hs2(){
   if(!S.sq.trim())return;
   S.le="";S.sr=[];S.lm="検索中…";render();
   fetch(W+"/?action=search&q="+encodeURIComponent(S.sq)).then(function(r){return r.json();}).then(function(d){
@@ -309,7 +365,7 @@ function selectStop(sid){
     var timetable=buildTimetable(d.files,sid);
     if(d.files["trips.txt"]&&d.files["stop_times.txt"])S.stopsWithDest=buildStopsWithDest(d.files);
     S.cachedFiles=d.files;
-    var ns2=res.stops.map(function(x){return{id:x.id,name:x.name};});
+    var ns2=res.stops.map(function(x){return{id:x.id,name:x.name,lat:x.lat,lon:x.lon};});
     var ni=0;for(var i=0;i<res.stops.length;i++){if(res.stops[i].id===sid){ni=i;break;}}
     var nr={name:res.name,stops:ns2,schedules:res.schedules,arrivalTimes:res.arrivalTimes,iv:3,tm:res.tm,stopId:sid,timetable:timetable};
     sv({route:nr,ti:ni,gurl:S.gurl,rid:S.rid,hasRT:S.hasRT,nm:S.nm,ns:S.ns,nm2:S.nm2,companyName:S.companyName});
@@ -319,7 +375,7 @@ function selectStop(sid){
 }
 
 function am(){
-  var stops=S.ms.split("\n").map(function(x){return x.trim();}).filter(Boolean).map(function(n,i){return{id:"m"+i,name:n};});
+  var stops=S.ms.split("\n").map(function(x){return x.trim();}).filter(Boolean).map(function(n,i){return{id:"m"+i,name:n,lat:null,lon:null};});
   var sc2=S.mt.split("\n").map(function(x){return x.trim();}).filter(function(x){return/^\d{1,2}:\d{2}$/.test(x);});
   if(stops.length<2){alert("停留所を2つ以上");return;}if(!sc2.length){alert("時刻表を入力してください");return;}
   var nr={name:S.mn||"手動入力路線",stops:stops,schedules:sc2,arrivalTimes:sc2,iv:parseFloat(S.mi)||3};
@@ -402,9 +458,7 @@ function openFav(i){
 function removeFav(i,ev){
   if(ev)ev.stopPropagation();
   S.favorites.splice(i,1);svFav();render();
-}
-
-function renderTimetable(T){
+}function renderTimetable(T){
   if(!S.route||!S.route.timetable)return'<div style="color:'+T.sub+';font-size:13px;text-align:center;padding:16px">時刻表データなし</div>';
   var dt=S.timetableDayType;
   var times=S.route.timetable[dt]||[];
@@ -451,6 +505,7 @@ function render(){
   var mins=nx?Math.ceil(nx.mtt):null,urg=mins!==null&&mins<=3;
   var nai=S.nm==="stops"?Math.max(0,S.ti-S.ns):null;
   var nextInfo=getNextBusInfo();
+  var isGPS=!!(nx&&nx.rt);
 
   if(S.ban){
     html+='<div style="position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:200;background:linear-gradient(135deg,#0ea5e9,#6366f1);color:white;padding:12px 16px;border-radius:14px;box-shadow:0 8px 24px rgba(14,165,233,0.5);max-width:90vw;display:flex;align-items:center;gap:10px">'
@@ -581,7 +636,7 @@ function render(){
 
   if(!S.rid){
     html+='<div style="background:'+T.card+';border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:'+T.sub+';border:1px solid '+T.border+';display:flex;align-items:center;gap:8px">'
-    +'<span>ℹ️</span><span><strong style="color:'+T.text+'">時刻表ベース</strong>でバス位置を推定しています</span></div>';
+    +'<span>ℹ️</span><span>時刻表ベースでバス位置を推定しています</span></div>';
   }
 
   if(nx){
@@ -590,13 +645,13 @@ function render(){
     +'<div style="display:flex;justify-content:space-between;align-items:flex-start">'
     +'<div><div style="font-size:11px;color:'+(urg?"#f87171":T.sub)+';margin-bottom:4px">'+(urg?"⚡ もうすぐ！":"次のバスまで")+'</div>'
     +'<div><span style="font-size:48px;font-weight:900;color:'+(urg?"#fca5a5":T.text)+'">'+mins+'</span><span style="font-size:16px;color:'+(urg?"#f87171":T.sub)+'"> 分</span></div>'
-    +'<div style="font-size:12px;color:'+T.sub+';margin-top:3px">'+ft(nx.times[S.ti])+'着'+(nx.rt?' <span style="color:#22c55e;font-size:10px">GPS</span>':'')+'</div>'
+    +'<div style="font-size:12px;color:'+T.sub+';margin-top:3px">'+(isGPS?'<span style="color:#22c55e;font-size:10px">● GPS</span> ':'')+'到着予定</div>'
     +dl+'</div>'
     +'<div style="text-align:right"><div style="font-size:11px;color:'+T.sub+';margin-bottom:3px">乗車停留所</div>'
     +'<div style="font-size:14px;font-weight:700;color:'+(urg?"#fca5a5":T.acc)+';max-width:120px;text-align:right;line-height:1.4">'+(S.route.stops[S.ti]?e(S.route.stops[S.ti].name):"")+'</div>'
     +'</div></div>'
     +'<div style="margin-top:12px;background:rgba(0,0,0,0.15);border-radius:5px;height:5px;overflow:hidden">'
-    +'<div style="width:'+Math.max(3,(nx.pos/(S.route.stops.length-1))*100)+'%;height:100%;background:'+(urg?"linear-gradient(to right,#ef4444,#f97316)":"linear-gradient(to right,#22c55e,"+T.acc+")")+';border-radius:5px;transition:width 0.8s ease"></div>'
+    +'<div style="width:'+Math.max(3,(p0/(S.route.stops.length-1))*100)+'%;height:100%;background:'+(urg?"linear-gradient(to right,#ef4444,#f97316)":"linear-gradient(to right,#22c55e,"+T.acc+")")+';border-radius:5px;transition:width 0.8s ease"></div>'
     +'</div>'
     +'<div style="display:flex;justify-content:space-between;font-size:10px;color:'+T.sub+';margin-top:3px">'
     +'<span>'+(S.route.stops[0]?e(S.route.stops[0].name):"")+'</span><span>'+(S.route.stops[S.route.stops.length-1]?e(S.route.stops[S.route.stops.length-1].name):"")+'</span></div></div>';
@@ -618,7 +673,7 @@ function render(){
 
   html+='<div style="background:'+T.card+';border-radius:16px;padding:14px 12px;border:1px solid '+T.border+';margin-bottom:14px">'
   +'<div style="font-size:11px;color:'+T.sub+';margin-bottom:10px;padding-left:6px;display:flex;justify-content:space-between">'
-  +'<span>バスの現在位置'+(buses[0]&&buses[0].rt?' <span style="color:#22c55e">GPS</span>':' <span style="color:'+T.sub+'">推定</span>')+'</span>'
+  +'<span>バスの現在位置'+(isGPS?' <span style="color:#22c55e">GPS</span>':' <span style="color:'+T.sub+'">推定</span>')+'</span>'
   +(nai!==null&&S.route.stops[nai]?'<span style="color:#a78bfa;font-size:11px">🔔 '+e(S.route.stops[nai].name)+'</span>':"")
   +'</div>'
   +'<div style="position:relative;padding-left:10px">'
