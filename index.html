@@ -170,17 +170,6 @@ function buildRoute(f,sid,serviceIds){
 
   return{name:rr.route_long_name||rr.route_short_name||"路線",stops:sl,schedules:sc,arrivalTimes:arrivalTimes,iv:3,tm:tm,stopIdx:stopIdx,routeTripIds:routeTripIds};
 }
-  var sc=tids.slice(0,80).map(function(t){var a=stm.filter(function(r){return r.trip_id===t;}).sort(function(a,b){return+a.stop_sequence-+b.stop_sequence;});return a[0]?(a[0].departure_time||a[0].arrival_time):null;}).filter(Boolean).sort();
-  var rid=(tr.filter(function(t){return t.trip_id===tid;})[0]||{}).route_id;
-  var rr=ro.filter(function(r){return r.route_id===rid;})[0]||{};
-  var tm={};tids.forEach(function(t){var a=stm.filter(function(r){return r.trip_id===t;}).sort(function(a,b){return+a.stop_sequence-+b.stop_sequence;});if(a[0])tm[t]=a[0].departure_time||a[0].arrival_time;});
-  var stopIdx=sl.findIndex(function(x){return x.id===sid;});
-  var arrivalTimes=tids.slice(0,80).map(function(t){
-    var row=stm.filter(function(r){return r.trip_id===t&&r.stop_id===sid;})[0];
-    return row?(row.arrival_time||row.departure_time):null;
-  }).filter(Boolean).sort();
-  return{name:rr.route_long_name||rr.route_short_name||"路線",stops:sl,schedules:sc,arrivalTimes:arrivalTimes,iv:3,tm:tm,stopIdx:stopIdx};
-}
 
 function buildTimetable(f,sid){
   var stm=csv(f["stop_times.txt"]),tr=csv(f["trips.txt"]);
