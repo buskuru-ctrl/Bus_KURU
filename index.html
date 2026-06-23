@@ -146,7 +146,6 @@ function buildRoute(f,sid,serviceIds){
   if(!tids.length)return null;
   var tid=tids[0];
   var ts=stm.filter(function(r){return r.trip_id===tid;}).sort(function(a,b){return+a.stop_sequence-+b.stop_sequence;});
-  // 停留所に緯度経度を含める
   var sl=ts.map(function(r){
     var s=st.filter(function(x){return x.stop_id===r.stop_id;})[0];
     return{
@@ -156,6 +155,21 @@ function buildRoute(f,sid,serviceIds){
       lon:s&&s.stop_lon?parseFloat(s.stop_lon):null
     };
   });
+  var sc=tids.slice(0,80).map(function(t){var a=stm.filter(function(r){return r.trip_id===t;}).sort(function(a,b){return+a.stop_sequence-+b.stop_sequence;});return a[0]?(a[0].departure_time||a[0].arrival_time):null;}).filter(Boolean).sort();
+  var rid=(tr.filter(function(t){return t.trip_id===tid;})[0]||{}).route_id;
+  var rr=ro.filter(function(r){return r.route_id===rid;})[0]||{};
+  var tm={};tids.forEach(function(t){var a=stm.filter(function(r){return r.trip_id===t;}).sort(function(a,b){return+a.stop_sequence-+b.stop_sequence;});if(a[0])tm[t]=a[0].departure_time||a[0].arrival_time;});
+  var stopIdx=sl.findIndex(function(x){return x.id===sid;});
+  var arrivalTimes=tids.slice(0,80).map(function(t){
+    var row=stm.filter(function(r){return r.trip_id===t&&r.stop_id===sid;})[0];
+    return row?(row.arrival_time||row.departure_time):null;
+  }).filter(Boolean).sort();
+
+  // この路線に属する全tripIdのセットを作る（GPS絞り込みに使う）
+  var routeTripIds=new Set(tids);
+
+  return{name:rr.route_long_name||rr.route_short_name||"路線",stops:sl,schedules:sc,arrivalTimes:arrivalTimes,iv:3,tm:tm,stopIdx:stopIdx,routeTripIds:routeTripIds};
+}
   var sc=tids.slice(0,80).map(function(t){var a=stm.filter(function(r){return r.trip_id===t;}).sort(function(a,b){return+a.stop_sequence-+b.stop_sequence;});return a[0]?(a[0].departure_time||a[0].arrival_time):null;}).filter(Boolean).sort();
   var rid=(tr.filter(function(t){return t.trip_id===tid;})[0]||{}).route_id;
   var rr=ro.filter(function(r){return r.route_id===rid;})[0]||{};
@@ -214,17 +228,57 @@ function getNextBusInfo(){
 }function gb(){
   if(!S.route)return[];
   var iv=S.route.iv||3.5,now=S.now;
-  // GPSデータがあり、停留所に緯度経度がある場合はGPS座標で位置を特定
   if(S.rid&&S.rv.length>0){
     var rb=[];
     var stopsHaveCoords=S.route.stops&&S.route.stops.some(function(s){return s.lat&&s.lon;});
+    var routeTripIds=S.route.routeTripIds||new Set();
+
+    // tripIdで絞り込めるか試みる
+    var matchedByTripId=[];
+    if(routeTripIds.size>0){
+      S.rv.forEach(function(v){
+        if(!v.tripId)return;
+        if(!routeTripIds.has(v.tripId))return;
+        matchedByTripId.push(v);
+      });
+    }
+
+    if(matchedByTripId.length>0){
+      // tripIdで絞り込めた場合
+      if(stopsHaveCoords){
+        matchedByTripId.forEach(function(v){
+          if(!v.lat||!v.lon)return;
+          var pos=gpsToRoutePos(v.lat,v.lon,S.route.stops);
+          if(pos<0)return;
+          var dl=(S.rd[v.tripId]||0)/60;
+          var stopsLeft=S.ti-pos;
+          var mtt=stopsLeft*iv+dl;
+          if(mtt<-5||mtt>120)return;
+          rb.push({id:"r-"+v.id,times:[],pos:pos,mtt:mtt,dl:dl,rt:true,lat:v.lat,lon:v.lon});
+        });
+      }else{
+        matchedByTripId.forEach(function(v){
+          if(!v.tripId||!S.route.tm[v.tripId])return;
+          var dep=S.route.tm[v.tripId],dl=(S.rd[v.tripId]||0)/60;
+          var times=ct(dep,S.route.stops.length,iv).map(function(t){return t+dl;});
+          var mtt=times[S.ti]-now;
+          if(mtt<-5||mtt>120)return;
+          rb.push({id:"r-"+v.tripId,times:times,pos:gp(times,now),mtt:mtt,dl:dl,rt:true});
+        });
+      }
+      if(rb.length){
+        rb.sort(function(a,b){return a.mtt-b.mtt;});
+        return rb;
+      }
+    }
+
+    // tripIdで絞り込めなかった場合は座標方式にフォールバック
     if(stopsHaveCoords){
       S.rv.forEach(function(v){
         if(!v.lat||!v.lon)return;
         var pos=gpsToRoutePos(v.lat,v.lon,S.route.stops);
         if(pos<0)return;
         var dl=(S.rd[v.tripId]||0)/60;
-        // 到着予定時刻を推定（乗車停留所までの残り停留所数×停留所間隔）
         var stopsLeft=S.ti-pos;
         var mtt=stopsLeft*iv+dl;
         if(mtt<-5||mtt>120)return;
@@ -234,17 +288,6 @@ function getNextBusInfo(){
         rb.sort(function(a,b){return a.mtt-b.mtt;});
         return rb;
       }
-    }else{
-      // 緯度経度がない場合は従来のtripId照合
-      S.rv.forEach(function(v){
-        if(!v.tripId||!S.route.tm[v.tripId])return;
-        var dep=S.route.tm[v.tripId],dl=(S.rd[v.tripId]||0)/60;
-        var times=ct(dep,S.route.stops.length,iv).map(function(t){return t+dl;});
-        var mtt=times[S.ti]-now;
-        if(mtt<-5||mtt>120)return;
-        rb.push({id:"r-"+v.tripId,times:times,pos:gp(times,now),mtt:mtt,dl:dl,rt:true});
-      });
-      if(rb.length){rb.sort(function(a,b){return a.mtt-b.mtt;});return rb;}
     }
   }
   return S.route.schedules.map(function(dep,i){
