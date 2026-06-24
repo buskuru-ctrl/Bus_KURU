@@ -166,8 +166,18 @@ function buildRoute(f,sid,serviceIds){
     return row?(row.arrival_time||row.departure_time):null;
   }).filter(Boolean).sort();
   var routeTripIds=new Set(tids);
-  return{name:rr.route_long_name||rr.route_short_name||"路線",stops:sl,schedules:sc,arrivalTimes:arrivalTimes,iv:3,tm:tm,stopIdx:stopIdx,routeTripIds:routeTripIds};
-}
+
+  // 各tripIdの停留所ごとの通過時刻を保存する（GTFSの実データ）
+  // stopTimes[tripId][stop_id] = "19:38:00" のような形
+  var stopTimes={};
+  tids.forEach(function(t){
+    stopTimes[t]={};
+    stm.filter(function(r){return r.trip_id===t;}).forEach(function(r){
+      stopTimes[t][r.stop_id]=r.arrival_time||r.departure_time;
+    });
+  });
+
+  return{name:rr.route_long_name||rr.route_short_name||"路線",stops:sl,schedules:sc,arrivalTimes:arrivalTimes,iv:3,tm:tm,stopIdx:stopIdx,routeTripIds:routeTripIds,stopTimes:stopTimes};
 
 // 全路線の時刻表を行き先付きで構築する（新版）
 function buildTimetable(f,sid){
