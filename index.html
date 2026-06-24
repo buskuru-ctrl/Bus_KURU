@@ -178,6 +178,7 @@ function buildRoute(f,sid,serviceIds){
   });
 
   return{name:rr.route_long_name||rr.route_short_name||"路線",stops:sl,schedules:sc,arrivalTimes:arrivalTimes,iv:3,tm:tm,stopIdx:stopIdx,routeTripIds:routeTripIds,stopTimes:stopTimes};
+}
 
 // 全路線の時刻表を行き先付きで構築する（新版）
 function buildTimetable(f,sid){
