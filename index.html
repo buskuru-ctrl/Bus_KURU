@@ -797,19 +797,35 @@ function renderTimetable(T){
     +'<div style="display:flex;justify-content:space-between;font-size:10px;color:'+T.sub+';margin-top:3px">'
     +'<span>'+(S.route.stops[0]?e(S.route.stops[0].name):"")+'</span><span>'+(S.route.stops[S.route.stops.length-1]?e(S.route.stops[S.route.stops.length-1].name):"")+'</span></div></div>';
   }else{
+    // 始発〜最終便の間かどうか判定
+    var allTimes=S.route.arrivalTimes||[];
+    var firstTime=allTimes.length?pt(allTimes[0]):null;
+    var lastTime=allTimes.length?pt(allTimes[allTimes.length-1]):null;
+    var isInService=firstTime!==null&&lastTime!==null&&S.now>=firstTime&&S.now<=lastTime+30;
+
     var nextStr="";
     if(nextInfo){
       nextStr='<div style="font-size:13px;color:'+T.acc+';margin-top:8px;font-weight:600">'
-      +(nextInfo.isToday?"本日":"翌日")+'の次の便: '+ft(nextInfo.time)+'着予定'
+      +'次の便: '+ft(nextInfo.time)+'着予定'
       +'<div style="font-size:11px;color:'+T.sub+';font-weight:400;margin-top:2px">約'+(nextInfo.mtt<60?Math.ceil(nextInfo.mtt)+'分後':Math.floor(nextInfo.mtt/60)+'時間'+Math.round(nextInfo.mtt%60)+'分後')+'</div>'
       +'</div>';
     }
-    html+='<div style="background:'+T.card+';border-radius:20px;padding:22px;border:1px solid '+T.border+';margin-bottom:14px;text-align:center">'
-    +'<div style="font-size:28px;margin-bottom:8px">'+T.icon+'</div>'
-    +'<div style="font-size:14px;color:'+T.sub+'">現在、運行時間外です</div>'
-    +nextStr
-    +(S.route.timetable?'<div style="font-size:11px;color:'+T.sub+';margin-top:8px">上の「📋 時刻表」で詳細を確認できます</div>':"")
-    +'</div>';
+
+    if(isInService){
+      // 運行中：「運行時間外」を出さずカウントダウンだけ表示
+      html+='<div style="background:'+T.card+';border-radius:20px;padding:22px;border:1px solid '+T.border+';margin-bottom:14px;text-align:center">'
+      +(nextInfo?nextStr:'<div style="font-size:14px;color:'+T.sub+'">次の便を確認中…</div>')
+      +(S.route.timetable?'<div style="font-size:11px;color:'+T.sub+';margin-top:8px">「📋 時刻表」で詳細を確認できます</div>':"")
+      +'</div>';
+    }else{
+      // 運行時間外（始発前・最終便後）
+      html+='<div style="background:'+T.card+';border-radius:20px;padding:22px;border:1px solid '+T.border+';margin-bottom:14px;text-align:center">'
+      +'<div style="font-size:28px;margin-bottom:8px">'+T.icon+'</div>'
+      +'<div style="font-size:14px;color:'+T.sub+'">現在、運行時間外です</div>'
+      +nextStr
+      +(S.route.timetable?'<div style="font-size:11px;color:'+T.sub+';margin-top:8px">「📋 時刻表」で詳細を確認できます</div>':"")
+      +'</div>';
+    }
   }
 
   // ── バス位置ライン ──
