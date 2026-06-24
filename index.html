@@ -267,11 +267,23 @@ function gb(){
   if(!S.route)return[];
   var iv=S.route.iv||3.5,now=S.now;
 
+  // 次の便のtripIdを時刻表から特定する
+  function getBestTripId(){
+    if(!S.route.timetable)return null;
+    var dt=S.timetableDayType;
+    var entries=S.route.timetable[dt]||[];
+    // 現在時刻以降で最初の便を探す
+    for(var i=0;i<entries.length;i++){
+      if(pt(entries[i].timeStr)>now-5)return entries[i].tripId;
+    }
+    // 全便が過ぎていたら最初の便
+    return entries.length?entries[0].tripId:null;
+  }
+
   // targetBus指定中：その便のGPSまたは時刻表推定だけを返す
   if(S.targetBus){
     var targetTime=S.targetBus.arrivalMin;
     var mtt=targetTime-now;
-    // 対象便のtripIdを探す
     var targetTripId=findTripIdByTimeAndHeadsign(S.targetBus.timeStr,S.targetBus.headsign);
     if(S.rid&&S.rv.length>0&&targetTripId){
       var matched=S.rv.filter(function(v){return v.tripId===targetTripId;});
@@ -289,6 +301,65 @@ function gb(){
         }
       }
     }
+    return[{id:"target-timetable",times:[],pos:-1,mtt:mtt,dl:0,rt:false}];
+  }
+
+  // targetBus未指定：次の便のtripIdで絞り込む
+  if(S.rid&&S.rv.length>0){
+    var rb=[];
+    var stopsHaveCoords=S.route.stops&&S.route.stops.some(function(s){return s.lat&&s.lon;});
+    var bestTripId=getBestTripId();
+    var routeTripIds=S.route.routeTripIds||new Set();
+
+    // まず次の便のtripIdで1台に絞る
+    if(bestTripId){
+      var exactMatch=S.rv.filter(function(v){return v.tripId===bestTripId;});
+      if(exactMatch.length>0){
+        var v2=exactMatch[0];
+        if(stopsHaveCoords&&v2.lat&&v2.lon){
+          var pos2=gpsToRoutePos(v2.lat,v2.lon,S.route.stops);
+          if(pos2>=0){
+            var dl2=(S.rd[bestTripId]||0)/60;
+            var stopsLeft2=S.ti-pos2;
+            var mtt2=stopsLeft2*iv+dl2;
+            if(mtt2>-5&&mtt2<120){
+              return[{id:"r-"+bestTripId,times:[],pos:pos2,mtt:mtt2,dl:dl2,rt:true,lat:v2.lat,lon:v2.lon}];
+            }
+          }
+        }else if(S.route.tm&&S.route.tm[bestTripId]){
+          var dep=S.route.tm[bestTripId],dl3=(S.rd[bestTripId]||0)/60;
+          var times=ct(dep,S.route.stops.length,iv).map(function(t){return t+dl3;});
+          var mtt3=times[S.ti]-now;
+          if(mtt3>-5&&mtt3<120){
+            return[{id:"r-"+bestTripId,times:times,pos:gp(times,now),mtt:mtt3,dl:dl3,rt:true}];
+          }
+        }
+      }
+    }
+
+    // 次の便が見つからない場合は路線内の全バスから座標で探す（フォールバック）
+    if(stopsHaveCoords){
+      S.rv.forEach(function(v){
+        if(!v.lat||!v.lon)return;
+        if(routeTripIds.size>0&&!routeTripIds.has(v.tripId))return;
+        var pos3=gpsToRoutePos(v.lat,v.lon,S.route.stops);
+        if(pos3<0)return;
+        var dl4=(S.rd[v.tripId]||0)/60;
+        var stopsLeft3=S.ti-pos3;
+        var mtt4=stopsLeft3*iv+dl4;
+        if(mtt4<-5||mtt4>120)return;
+        rb.push({id:"r-"+v.id,times:[],pos:pos3,mtt:mtt4,dl:dl4,rt:true,lat:v.lat,lon:v.lon});
+      });
+      if(rb.length){rb.sort(function(a,b){return a.mtt-b.mtt;});return rb;}
+    }
+  }
+
+  // GPS使えない場合は時刻表ベース
+  return S.route.schedules.map(function(dep,i){
+    var times=ct(dep,S.route.stops.length,iv);
+    return{id:"b"+i,times:times,pos:gp(times,now),mtt:times[S.ti]-now,dm:pt(dep),dl:0,rt:false};
+  }).filter(function(b){return now>=(b.dm||0)&&b.times[S.ti]>=now-1;});
+}
     // GPSで特定できない場合は時刻表ベースで返す
     return[{id:"target-timetable",times:[],pos:-1,mtt:mtt,dl:0,rt:false}];
   }
