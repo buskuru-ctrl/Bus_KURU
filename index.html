@@ -433,7 +433,7 @@ function gb(){
 }
 
 var rtt=null;
-function srt(){if(rtt)clearInterval(rtt);drt();rtt=setInterval(drt,30000);}
+function srt(){if(rtt)clearInterval(rtt);drt();rtt=setInterval(drt,10000);}
 function drt(){
   if(!S.rid)return;
   fetch(W+"/?action=realtime&id="+S.rid).then(function(r){return r.json();}).then(function(d){
