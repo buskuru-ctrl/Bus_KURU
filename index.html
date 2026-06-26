@@ -21,11 +21,13 @@ var W="https://cold-recipe-799d.kikucchao.workers.dev";
 
 function getTheme(){
   var now=gn();
-  if(S&&S.route&&S.route.arrivalTimes&&S.route.arrivalTimes.length){
-    var first=pt(S.route.arrivalTimes[0]);
-    var last=pt(S.route.arrivalTimes[S.route.arrivalTimes.length-1]);
-    if(now<first-30||now>last+10)return"night";
-  }
+  try{
+    if(S&&S.route&&S.route.arrivalTimes&&S.route.arrivalTimes.length){
+      var first=pt(S.route.arrivalTimes[0]);
+      var last=pt(S.route.arrivalTimes[S.route.arrivalTimes.length-1]);
+      if(now<first-30||now>last+10)return"night";
+    }
+  }catch(x){}
   var h=new Date().getHours();
   if(h>=5&&h<8)return"dawn";
   if(h>=8&&h<17)return"day";
