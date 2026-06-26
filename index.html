@@ -53,15 +53,24 @@ var S={
   favorites:[],
   theme:getTheme(),dayType:getDayType(),
   // 通知するバスを1便に絞る設定
-  // null = 自動（次のバスを追いかける従来モード）
-  // {timeStr:"08:15", headsign:"陸別行き", arrivalMin:495} = 指定した1便
-  targetBus:null
+  targetBus:null,
+  // 追跡固定用
+  lockedTripId:null,      // 現在固定中のtripId
+  lockedAt:0,             // 固定した時刻（Date.now()）
+  lastGpsTime:{},         // tripIdごとの最終GPS受信時刻
+  LOCK_DURATION:30000,    // 固定時間（30秒）
+  GPS_EXPIRE:60000        // GPS表示を消すまでの時間（60秒）
 };
 function gn(){var n=new Date();return n.getHours()*60+n.getMinutes()+n.getSeconds()/60;}
 S.now=gn();
 function e(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function pt(s){if(!s)return 0;var p=s.split(":");return+p[0]*60+(+p[1])+(p[2]?+p[2]/60:0);}
-function ft(m){var h=Math.floor(m/60)%24,n=Math.round(m%60);return(h<10?"0":"")+h+":"+(n<10?"0":"")+n;}
+function ft(m){
+  var total=Math.round(m);
+  var h=Math.floor(total/60)%24;
+  var n=total%60;
+  return(h<10?"0":"")+h+":"+(n<10?"0":"")+n;
+}
 function sv(c){try{localStorage.setItem("bk9",JSON.stringify(c));}catch(x){}}
 function lv(){try{var s=localStorage.getItem("bk9");return s?JSON.parse(s):null;}catch(x){return null;}}
 function svFav(){try{localStorage.setItem("bk_fav",JSON.stringify(S.favorites));}catch(x){}}
@@ -278,43 +287,64 @@ function gb(){
   if(!S.route)return[];
   var iv=S.route.iv||3.5,now=S.now;
 
-  function getBestTripId(){
-    // GPSデータに実際に存在するtripIdを時刻付きで集める
-    var gpsTripIds=new Set();
-    S.rv.forEach(function(v){if(v.tripId)gpsTripIds.add(v.tripId);});
+  // GPS受信時刻が古いvehicleを除外する
+  var validVehicles=S.rv.filter(function(v){
+    if(!v.tripId)return false;
+    var last=S.lastGpsTime[v.tripId]||0;
+    return(Date.now()-last)<S.GPS_EXPIRE;
+  });
 
-    // 時刻表から「現在時刻以降で最初の便」を順番に探す
+  function getBestTripId(){
+    var gpsTripIds=new Set();
+    validVehicles.forEach(function(v){if(v.tripId)gpsTripIds.add(v.tripId);});
+
     var dt=S.timetableDayType;
     var entries=S.route.timetable?S.route.timetable[dt]||[]:[];
+
+    // 時刻表の便を順番に見て、時刻が現在の前後15分以内かつGPSに存在するものを採用
     for(var i=0;i<entries.length;i++){
       var en=entries[i];
-      // 現在時刻の5分前以降の便を対象にする（遅延を考慮して少し余裕を持つ）
-      if(pt(en.timeStr)<now-15)continue;
-      // GPS上にそのtripIdのバスが実際に存在するなら最優先で採用
+      var t=pt(en.timeStr);
+      if(t<now-15||t>now+15)continue;
       if(gpsTripIds.has(en.tripId))return en.tripId;
     }
 
-    // GPS上に一致するtripIdがない場合：時刻表の次の便のtripIdをそのまま返す
+    // GPSに一致なし：時刻表の次の便を返す（表示用）
     for(var j=0;j<entries.length;j++){
       if(pt(entries[j].timeStr)>now-5)return entries[j].tripId;
     }
     return entries.length?entries[0].tripId:null;
   }
 
+  function getLockedOrBestTripId(){
+    var nowMs=Date.now();
+    // 固定中のtripIdがまだ有効か確認
+    if(S.lockedTripId&&(nowMs-S.lockedAt)<S.LOCK_DURATION){
+      // そのtripIdのバスがGPSに存在するか
+      var still=validVehicles.some(function(v){return v.tripId===S.lockedTripId;});
+      if(still)return S.lockedTripId;
+    }
+    // 固定を解除して新しいtripIdを選ぶ
+    var best=getBestTripId();
+    if(best){S.lockedTripId=best;S.lockedAt=nowMs;}
+    return best;
+  }
+
   if(S.targetBus){
     var targetTime=S.targetBus.arrivalMin;
     var mtt=targetTime-now;
     var targetTripId=findTripIdByTimeAndHeadsign(S.targetBus.timeStr,S.targetBus.headsign);
-    if(S.rid&&S.rv.length>0&&targetTripId){
-      var matched=S.rv.filter(function(v){return v.tripId===targetTripId;});
+    if(S.rid&&validVehicles.length>0&&targetTripId){
+      var matched=validVehicles.filter(function(v){return v.tripId===targetTripId;});
       if(matched.length>0){
         var v=matched[0];
         var stopsHaveCoords=S.route.stops&&S.route.stops.some(function(s){return s.lat&&s.lon;});
         if(stopsHaveCoords&&v.lat&&v.lon){
           var pos=gpsToRoutePos(v.lat,v.lon,S.route.stops);
           if(pos>=0){
+            // 乗車停留所を通過済みならスキップ
+            if(pos>S.ti+0.5)return[{id:"target-timetable",times:[],pos:-1,mtt:mtt,dl:0,rt:false}];
             var dl=(S.rd[targetTripId]||0)/60;
-            // GTFSの実時刻から計算
             var gMtt=null;
             var tgStop=S.route.stops[S.ti];
             if(tgStop&&S.route.stopTimes&&S.route.stopTimes[targetTripId]){
@@ -339,39 +369,31 @@ function gb(){
     return[{id:"target-timetable",times:[],pos:-1,mtt:mtt,dl:0,rt:false}];
   }
 
-  if(S.rid&&S.rv.length>0){
-    var rb=[];
+  if(S.rid&&validVehicles.length>0){
     var stopsHaveCoords=S.route.stops&&S.route.stops.some(function(s){return s.lat&&s.lon;});
-    var bestTripId=getBestTripId();
+    var bestTripId=getLockedOrBestTripId();
     var routeTripIds=S.route.routeTripIds||new Set();
     if(bestTripId){
-      var exactMatch=S.rv.filter(function(v){return v.tripId===bestTripId;});
+      var exactMatch=validVehicles.filter(function(v){return v.tripId===bestTripId;});
       if(exactMatch.length>0){
         var v2=exactMatch[0];
         var dl2=(S.rd[bestTripId]||0)/60;
 
-        // GTFSの実時刻から乗車停留所への到着予定時刻を計算する
         function getMttFromStopTimes(tripId,currentStopIdx){
           var st=S.route.stopTimes&&S.route.stopTimes[tripId];
           if(!st)return null;
-          // 乗車停留所の予定時刻
           var targetStop=S.route.stops[S.ti];
           if(!targetStop)return null;
           var targetTime=st[targetStop.id];
           if(!targetTime)return null;
           var targetMin=pt(targetTime)+dl2;
-          // 現在いる停留所の予定時刻
           var currentStop=S.route.stops[currentStopIdx];
           if(currentStop){
             var currentTime=st[currentStop.id];
             if(currentTime){
-              // 現在停留所の予定時刻と実際の時刻のズレを遅延として加算
               var scheduledNow=pt(currentTime);
               var actualDelay=now-scheduledNow;
-              // 遅延が異常値（30分以上）でなければ反映
-              if(actualDelay>-5&&actualDelay<30){
-                return targetMin+actualDelay-now;
-              }
+              if(actualDelay>-5&&actualDelay<30){return targetMin+actualDelay-now;}
             }
           }
           return targetMin-now;
@@ -380,18 +402,18 @@ function gb(){
         if(stopsHaveCoords&&v2.lat&&v2.lon){
           var pos2=gpsToRoutePos(v2.lat,v2.lon,S.route.stops);
           if(pos2>=0){
-            var mtt2=getMttFromStopTimes(bestTripId,Math.round(pos2));
-            // GTFSの実時刻が使えない場合は停留所数×iv分で計算
-            if(mtt2===null){
-              var stopsLeft2=S.ti-pos2;
-              mtt2=stopsLeft2*iv+dl2;
+            // 乗車停留所を通過済みなら固定解除してリセット
+            if(pos2>S.ti+0.5){
+              S.lockedTripId=null;S.lockedAt=0;
+              return[];
             }
+            var mtt2=getMttFromStopTimes(bestTripId,Math.round(pos2));
+            if(mtt2===null){var stopsLeft2=S.ti-pos2;mtt2=stopsLeft2*iv+dl2;}
             if(mtt2>-5&&mtt2<120){
               return[{id:"r-"+bestTripId,times:[],pos:pos2,mtt:mtt2,dl:dl2,rt:true,lat:v2.lat,lon:v2.lon}];
             }
           }
         }else if(S.route.tm&&S.route.tm[bestTripId]){
-          // 座標が使えない場合：GTFSの乗車停留所到着時刻から直接計算
           var targetStop2=S.route.stops[S.ti];
           var mtt3=null;
           if(targetStop2&&S.route.stopTimes&&S.route.stopTimes[bestTripId]){
@@ -404,18 +426,20 @@ function gb(){
             mtt3=times[S.ti]-now;
           }
           if(mtt3>-5&&mtt3<120){
-            var pos3b=S.route.tm[bestTripId]?gp(ct(S.route.tm[bestTripId],S.route.stops.length,iv),now):-1;
+            var pos3b=gp(ct(S.route.tm[bestTripId],S.route.stops.length,iv),now);
             return[{id:"r-"+bestTripId,times:[],pos:pos3b,mtt:mtt3,dl:dl2,rt:true}];
           }
         }
       }
     }
     if(stopsHaveCoords){
-      S.rv.forEach(function(v){
+      var rb=[];
+      validVehicles.forEach(function(v){
         if(!v.lat||!v.lon)return;
         if(routeTripIds.size>0&&!routeTripIds.has(v.tripId))return;
         var pos3=gpsToRoutePos(v.lat,v.lon,S.route.stops);
         if(pos3<0)return;
+        if(pos3>S.ti+0.5)return;
         var dl4=(S.rd[v.tripId]||0)/60;
         var stopsLeft3=S.ti-pos3;
         var mtt4=stopsLeft3*iv+dl4;
@@ -437,9 +461,21 @@ function srt(){if(rtt)clearInterval(rtt);drt();rtt=setInterval(drt,10000);}
 function drt(){
   if(!S.rid)return;
   fetch(W+"/?action=realtime&id="+S.rid).then(function(r){return r.json();}).then(function(d){
-    if(!d.error){S.rv=d.vehicles||[];S.rd=d.delays||{};S.re="";S.lu=Date.now();}
-    else S.re=d.error;
-    cn();if(S.scr==="monitor")render();
+    if(!d.error){
+      S.rv=d.vehicles||[];
+      S.rd=d.delays||{};
+      S.re="";
+      S.lu=Date.now();
+      // 受信できたvehicleの最終受信時刻を更新する
+      var nowMs=Date.now();
+      S.rv.forEach(function(v){
+        if(v.tripId)S.lastGpsTime[v.tripId]=nowMs;
+      });
+    }else{
+      S.re=d.error;
+    }
+    cn();
+    if(S.scr==="monitor")render();
   }).catch(function(ex){S.re=ex.message;});
 }
 setInterval(function(){
