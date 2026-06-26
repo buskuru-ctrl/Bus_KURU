@@ -301,11 +301,11 @@ function gb(){
     var dt=S.timetableDayType;
     var entries=S.route.timetable?S.route.timetable[dt]||[]:[];
 
-    // 時刻表の便を順番に見て、時刻が現在の前後15分以内かつGPSに存在するものを採用
+    // 時刻表の便を順番に見て、過去5分以内または未来20分以内かつGPSに存在するものを採用
     for(var i=0;i<entries.length;i++){
       var en=entries[i];
       var t=pt(en.timeStr);
-      if(t<now-15||t>now+15)continue;
+      if(t<now-5||t>now+20)continue;
       if(gpsTripIds.has(en.tripId))return en.tripId;
     }
 
@@ -964,7 +964,7 @@ function renderTimetable(T){
     +e(s.name)
     +(isTgt?'<span style="background:'+T.acc+'22;color:'+T.acc+';border:1px solid '+T.acc+'44;border-radius:5px;padding:1px 5px;font-size:10px">乗車</span>':"")
     +(isNot&&!isTgt?'<span style="background:#a78bfa22;color:#a78bfa;border:1px solid #a78bfa44;border-radius:5px;padding:1px 5px;font-size:10px">通知</span>':"")
-    +(isBus?"🚌":"")
+    +(isBus?'<span style="font-size:20px">🚌</span>':"")
     +'</div></div>';
   });
   html+='</div></div>';
