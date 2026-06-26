@@ -20,6 +20,12 @@ body{font-family:'Hiragino Sans','Noto Sans JP',sans-serif;min-height:100vh;tran
 var W="https://cold-recipe-799d.kikucchao.workers.dev";
 
 function getTheme(){
+  var now=gn();
+  if(S&&S.route&&S.route.arrivalTimes&&S.route.arrivalTimes.length){
+    var first=pt(S.route.arrivalTimes[0]);
+    var last=pt(S.route.arrivalTimes[S.route.arrivalTimes.length-1]);
+    if(now<first-30||now>last+10)return"night";
+  }
   var h=new Date().getHours();
   if(h>=5&&h<8)return"dawn";
   if(h>=8&&h<17)return"day";
@@ -627,7 +633,9 @@ function goChangeStop(){
     S.stops=csv(S.cachedFiles["stops.txt"]||"");
     if(S.cachedFiles["trips.txt"]&&S.cachedFiles["stop_times.txt"])S.stopsWithDest=buildStopsWithDest(S.cachedFiles);
   }
-  S.scr="stop_select";S.sf="";S.ss=false;S.showTimetable=false;S.targetBus=null;render();
+  S.scr="stop_select";S.sf="";S.ss=false;S.showTimetable=false;S.targetBus=null;
+  S.showFavInStop=true;
+  render();
 }
 
 function favKey(){return(S.gurl||"")+"|"+(S.route&&S.route.stopId?S.route.stopId:"");}
@@ -792,11 +800,30 @@ function renderTimetable(T){
   if(S.scr==="stop_select"){
     if(!document.getElementById("sl")){
       var rtB=S.hasRT?'<div style="font-size:12px;color:#22c55e;margin-top:4px">● リアルタイムGPS対応</div>':'<div style="font-size:12px;color:'+T.sub+';margin-top:4px">○ 時刻表ベースで動作します</div>';
+      var favHtml="";
+      if(S.showFavInStop&&S.favorites.length){
+        var sameCo=S.favorites.filter(function(f){return f.gurl===S.gurl;});
+        if(sameCo.length){
+          favHtml+='<div style="background:'+T.card+';border-radius:14px;border:1px solid '+T.border+';margin-bottom:14px;overflow:hidden">'
+          +'<div style="font-size:11px;color:'+T.sub+';padding:8px 14px 4px">⭐ お気に入り</div>';
+          sameCo.forEach(function(f,i){
+            var idx=S.favorites.indexOf(f);
+            favHtml+='<div onclick="openFav('+idx+')" style="padding:12px 14px;border-top:1px solid '+T.border+';cursor:pointer;display:flex;align-items:center;gap:10px">'
+            +'<div style="font-size:18px">🚏</div>'
+            +'<div style="flex:1"><div style="font-size:14px;font-weight:600;color:'+T.text+'">'+e(f.stopName)+'</div>'
+            +'<div style="font-size:11px;color:'+T.sub+';margin-top:2px">'+e(f.routeName)+'</div></div>'
+            +'<div style="color:'+T.sub+'">›</div></div>';
+          });
+          favHtml+='</div>';
+        }
+      }
       app.innerHTML='<div style="background:'+T.hdr+';padding:22px 14px 14px;margin:-14px -14px 14px">'
       +'<button onclick="goChangeCompany()" style="background:rgba(255,255,255,0.15);border:none;border-radius:8px;color:white;padding:5px 10px;font-size:13px;cursor:pointer;margin-bottom:10px;display:block">← バス会社を変更</button>'
       +'<div style="font-size:17px;font-weight:800;color:white">乗る停留所を選んでください</div>'
       +'<div style="font-size:12px;color:rgba(255,255,255,0.8);margin-top:3px">→ の行き先を参考に方向を確認してください</div>'
       +rtB+'</div>'
+      +'<div style="height:14px"></div>'
+      +favHtml
       +'<div style="background:'+T.card+';border-radius:14px;padding:12px;border:1px solid '+T.border+';margin-bottom:14px">'
       +'<input id="sf" type="text" style="background:'+T.bg+';border:1px solid '+T.border+';border-radius:8px;color:'+T.text+';padding:10px 12px;font-size:14px;font-family:inherit;outline:none;width:100%" placeholder="🔍 停留所名で絞り込み…">'
       +'</div><div id="sl"></div>';
