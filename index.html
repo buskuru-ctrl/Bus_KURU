@@ -497,9 +497,10 @@ setInterval(function(){
 
 function cn(){
   if(S.scr!=="monitor"||!S.route)return;
-  gb().forEach(function(b){
+  var buses=S.buses||gb();
+  buses.forEach(function(b){
     if(S.nids.indexOf(b.id)>=0)return;
-    var f=false,msg="";
+    var f=false,msg="",isGPS=!!b.rt;
     if(S.nm==="stops"){
       var at=S.ti-S.ns;
       if(at>=0&&b.pos>=at-0.3&&b.pos<at+1.5){
@@ -513,9 +514,9 @@ function cn(){
       }
     }
     if(f){
-      S.nids.push(b.id);S.ban=msg;
+      S.nids.push(b.id);S.ban={text:msg,isGPS:isGPS};
       playAlarm();
-      if(window.Notification&&Notification.permission==="granted")new Notification("🚌",{body:msg});
+      if(window.Notification&&Notification.permission==="granted")new Notification("🚌",{body:msg+(isGPS?"":" （時刻表ベース）")});
       render();
     }
   });
