@@ -488,12 +488,42 @@ function drt(){
 }
 setInterval(function(){
   S.now=gn();S.theme=getTheme();S.dayType=getDayType();
-  // targetBus指定中で、すでに到着済み（5分以上経過）なら自動解除
   if(S.targetBus&&S.targetBus.arrivalMin<S.now-5){
     S.targetBus=null;S.nids=[];
   }
+  S.buses=gb();
   cn();if(S.scr==="monitor")render();
 },10000);
+
+function cn(){
+  if(S.scr!=="monitor"||!S.route)return;
+  var buses=S.buses||gb();
+  buses.forEach(function(b){
+    if(S.nids.indexOf(b.id)>=0)return;
+    var f=false,msg="",isGPS=!!b.rt;
+    var gpsSuffix=isGPS
+      ?'<span style="color:#22c55e;font-size:11px"> ● GPS情報をもとに算出</span>'
+      :'<span style="color:#ef4444;font-size:11px"> ● 位置情報未取得・時刻表ベース</span>';
+    if(S.nm==="stops"){
+      var at=S.ti-S.ns;
+      if(at>=0&&b.pos>=at-0.3&&b.pos<at+1.5){
+        f=true;
+        msg="バスが"+S.ns+"つ前「"+(S.route.stops[at]?S.route.stops[at].name:"")+"」に来ました！"+(b.dl>0.5?"（"+Math.round(b.dl)+"分遅れ）":"")+"準備して🏃";
+      }
+    }else{
+      if(b.mtt<=S.nm2+0.5&&b.mtt>0){
+        f=true;
+        msg="バスがあと約"+Math.ceil(b.mtt)+"分で来ます！"+(b.dl>0.5?"（"+Math.round(b.dl)+"分遅れ）":"")+"準備して🏃";
+      }
+    }
+    if(f){
+      S.nids.push(b.id);S.ban={text:msg,isGPS:isGPS};
+      playAlarm();
+      if(window.Notification&&Notification.permission==="granted")new Notification("🚌",{body:msg+(isGPS?"":" （時刻表ベース）")});
+      render();
+    }
+  });
+}
 
 function playAlarm(){
   try{
@@ -728,9 +758,17 @@ function renderTimetable(T){
   var isGPS=!!(nx&&nx.rt);
 
   if(S.ban){
-    html+='<div style="position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:200;background:linear-gradient(135deg,#0ea5e9,#6366f1);color:white;padding:12px 16px;border-radius:14px;box-shadow:0 8px 24px rgba(14,165,233,0.5);max-width:90vw;display:flex;align-items:center;gap:10px">'
-    +'<span>🔔</span><span style="font-size:13px;font-weight:600;flex:1">'+e(S.ban)+'</span>'
-    +'<button onclick="S.ban=null;render()" style="background:rgba(255,255,255,0.2);border:none;color:white;border-radius:6px;padding:3px 8px;cursor:pointer">✕</button></div>';
+    var banIsGPS=S.ban.isGPS;
+    var banText=typeof S.ban==="object"?S.ban.text:S.ban;
+    html+='<div style="position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:200;background:linear-gradient(135deg,#0ea5e9,#6366f1);color:white;padding:12px 16px;border-radius:14px;box-shadow:0 8px 24px rgba(14,165,233,0.5);max-width:90vw;display:flex;flex-direction:column;gap:4px">'
+    +'<div style="display:flex;align-items:center;gap:10px">'
+    +'<span>🔔</span><span style="font-size:13px;font-weight:600;flex:1">'+e(banText)+'</span>'
+    +'<button onclick="S.ban=null;render()" style="background:rgba(255,255,255,0.2);border:none;color:white;border-radius:6px;padding:3px 8px;cursor:pointer">✕</button></div>'
+    +'<div style="font-size:11px;padding-left:24px">'
+    +(banIsGPS
+      ?'<span style="color:#86efac">● GPS情報をもとに算出</span>'
+      :'<span style="color:#fca5a5">● 位置情報未取得・時刻表ベース</span>')
+    +'</div></div>';
   }
 
   if(S.scr==="loading"){
