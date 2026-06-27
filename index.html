@@ -497,36 +497,6 @@ setInterval(function(){
 
 function cn(){
   if(S.scr!=="monitor"||!S.route)return;
-  var buses=S.buses||gb();
-  buses.forEach(function(b){
-    if(S.nids.indexOf(b.id)>=0)return;
-    var f=false,msg="",isGPS=!!b.rt;
-    var gpsSuffix=isGPS
-      ?'<span style="color:#22c55e;font-size:11px"> ● GPS情報をもとに算出</span>'
-      :'<span style="color:#ef4444;font-size:11px"> ● 位置情報未取得・時刻表ベース</span>';
-    if(S.nm==="stops"){
-      var at=S.ti-S.ns;
-      if(at>=0&&b.pos>=at-0.3&&b.pos<at+1.5){
-        f=true;
-        msg="バスが"+S.ns+"つ前「"+(S.route.stops[at]?S.route.stops[at].name:"")+"」に来ました！"+(b.dl>0.5?"（"+Math.round(b.dl)+"分遅れ）":"")+"準備して🏃";
-      }
-    }else{
-      if(b.mtt<=S.nm2+0.5&&b.mtt>0){
-        f=true;
-        msg="バスがあと約"+Math.ceil(b.mtt)+"分で来ます！"+(b.dl>0.5?"（"+Math.round(b.dl)+"分遅れ）":"")+"準備して🏃";
-      }
-    }
-    if(f){
-      S.nids.push(b.id);S.ban={text:msg,isGPS:isGPS};
-      playAlarm();
-      if(window.Notification&&Notification.permission==="granted")new Notification("🚌",{body:msg+(isGPS?"":" （時刻表ベース）")});
-      render();
-    }
-  });
-}
-
-function cn(){
-  if(S.scr!=="monitor"||!S.route)return;
   gb().forEach(function(b){
     if(S.nids.indexOf(b.id)>=0)return;
     var f=false,msg="";
