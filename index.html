@@ -417,7 +417,7 @@ function gb(){
             }
             var mtt2=getMttFromStopTimes(bestTripId,Math.round(pos2));
             if(mtt2===null){var stopsLeft2=S.ti-pos2;mtt2=stopsLeft2*iv+dl2;}
-            if(mtt2>-5&&mtt2<120){
+            if(mtt2>-5){
               return[{id:"r-"+bestTripId,times:[],pos:pos2,mtt:mtt2,dl:dl2,rt:true,lat:v2.lat,lon:v2.lon}];
             }
           }
@@ -433,7 +433,7 @@ function gb(){
             var times=ct(dep,S.route.stops.length,iv).map(function(t){return t+dl3;});
             mtt3=times[S.ti]-now;
           }
-          if(mtt3>-5&&mtt3<120){
+          if(mtt3>-5){
             var pos3b=gp(ct(S.route.tm[bestTripId],S.route.stops.length,iv),now);
             return[{id:"r-"+bestTripId,times:[],pos:pos3b,mtt:mtt3,dl:dl2,rt:true}];
           }
@@ -461,7 +461,7 @@ function gb(){
   return S.route.schedules.map(function(dep,i){
     var times=ct(dep,S.route.stops.length,iv);
     return{id:"b"+i,times:times,pos:gp(times,now),mtt:times[S.ti]-now,dm:pt(dep),dl:0,rt:false};
-  }).filter(function(b){return now>=(b.dm||0)&&b.times[S.ti]>=now-1;});
+  }).filter(function(b){return now>=(b.dm||0)&&b.times[S.ti]>=now-1&&b.times[S.ti]-now<=30;});
 }
 
 var rtt=null;
@@ -769,7 +769,7 @@ function renderTimetable(T){
   var T=TH[S.theme];
   document.body.style.background=T.bg;
   document.body.style.color=T.text;
-  var app=document.getElementById("app"),html="",buses=gb(),nx=null;
+  var app=document.getElementById("app"),html="",buses=S.buses||gb(),nx=null;
   for(var i=0;i<buses.length;i++){if(buses[i].mtt>0){nx=buses[i];break;}}
   var mins=nx?Math.ceil(nx.mtt):null,urg=mins!==null&&mins<=3;
   var nai=S.nm==="stops"?Math.max(0,S.ti-S.ns):null;
