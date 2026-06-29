@@ -489,11 +489,35 @@ function drt(fromButton){
       if(fromButton)S.gpsStatus="error";
     }
     cn();
-    if(S.scr==="monitor")render();
+if(S.scr==="monitor"){
+  var popupOpen2=document.getElementById("gps-info-popup")&&document.getElementById("gps-info-popup").style.display==="block";
+  if(popupOpen2){
+    var tempHtml2=document.getElementById("gps-info-popup").outerHTML;
+    var tempOverlay2=document.getElementById("gps-info-overlay").outerHTML;
+    render();
+    document.getElementById("app").insertAdjacentHTML("beforeend",tempHtml2+tempOverlay2);
+    document.getElementById("gps-info-popup").style.display="block";
+    document.getElementById("gps-info-overlay").style.display="block";
+  }else{
+    render();
+  }
+}
   }).catch(function(ex){
     S.re=ex.message;
     if(fromButton)S.gpsStatus="error";
-    if(S.scr==="monitor")render();
+    if(S.scr==="monitor"){
+  var popupOpen3=document.getElementById("gps-info-popup")&&document.getElementById("gps-info-popup").style.display==="block";
+  if(popupOpen3){
+    var tempHtml3=document.getElementById("gps-info-popup").outerHTML;
+    var tempOverlay3=document.getElementById("gps-info-overlay").outerHTML;
+    render();
+    document.getElementById("app").insertAdjacentHTML("beforeend",tempHtml3+tempOverlay3);
+    document.getElementById("gps-info-popup").style.display="block";
+    document.getElementById("gps-info-overlay").style.display="block";
+  }else{
+    render();
+  }
+}
   });
 }
 
