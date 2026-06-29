@@ -503,7 +503,20 @@ setInterval(function(){
     S.targetBus=null;S.nids=[];
   }
   S.buses=gb();
-  cn();if(S.scr==="monitor")render();
+  cn();
+if(S.scr==="monitor"){
+  var popupOpen=document.getElementById("gps-info-popup")&&document.getElementById("gps-info-popup").style.display==="block";
+  if(popupOpen){
+    var tempHtml=document.getElementById("gps-info-popup").outerHTML;
+    var tempOverlay=document.getElementById("gps-info-overlay").outerHTML;
+    render();
+    document.getElementById("app").insertAdjacentHTML("beforeend",tempHtml+tempOverlay);
+    document.getElementById("gps-info-popup").style.display="block";
+    document.getElementById("gps-info-overlay").style.display="block";
+  }else{
+    render();
+  }
+}
 },10000);
 
 function playAlarm(){
