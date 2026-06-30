@@ -458,10 +458,21 @@ function gb(){
     }
   }
 
-  return S.route.schedules.map(function(dep,i){
-    var times=ct(dep,S.route.stops.length,iv);
-    return{id:"b"+i,times:times,pos:gp(times,now),mtt:times[S.ti]-now,dm:pt(dep),dl:0,rt:false};
-  }).filter(function(b){return now>=(b.dm||0)&&b.times[S.ti]>=now-1&&b.times[S.ti]-now<=30;});
+  var dt2=S.timetableDayType;
+var entries2=S.route.timetable?S.route.timetable[dt2]||[]:[];
+var result2=[];
+entries2.forEach(function(en,i){
+  var arrMin=pt(en.timeStr);
+  var mtt=arrMin-now;
+  if(mtt<-5||mtt>30)return;
+  var tid=en.tripId;
+  var stTimes=S.route.stopTimes&&S.route.stopTimes[tid];
+  var depTime=stTimes?stTimes[S.route.stops[0].id]:null;
+  var dep=depTime||en.timeStr;
+  var times=ct(dep,S.route.stops.length,iv);
+  result2.push({id:"t"+i,times:times,pos:gp(times,now),mtt:mtt,dm:pt(dep),dl:0,rt:false});
+});
+return result2;
 }
 
 var rtt=null;
