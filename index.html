@@ -694,10 +694,23 @@ function goChangeStop(){
   if(S.cachedFiles){
     S.stops=csv(S.cachedFiles["stops.txt"]||"");
     if(S.cachedFiles["trips.txt"]&&S.cachedFiles["stop_times.txt"])S.stopsWithDest=buildStopsWithDest(S.cachedFiles);
+    S.scr="stop_select";S.sf="";S.ss=false;S.showTimetable=false;S.targetBus=null;
+    S.showFavInStop=true;
+    render();
+  }else{
+    S.scr="loading";S.lm="停留所を読み込み中…";render();
+    fetch(W+"/?action=fetch_stops&url="+encodeURIComponent(S.gurl))
+    .then(function(r){return r.json();}).then(function(d){
+      if(d.error)throw new Error(d.error);
+      S.cachedFiles=d.files;
+      S.stops=csv(d.files["stops.txt"]);
+      if(d.files["trips.txt"]&&d.files["stop_times.txt"])S.stopsWithDest=buildStopsWithDest(d.files);
+      else S.stopsWithDest={};
+      S.scr="stop_select";S.sf="";S.ss=false;S.showTimetable=false;S.targetBus=null;
+      S.showFavInStop=true;
+      render();
+    }).catch(function(ex){S.le=ex.message;S.scr="welcome";render();});
   }
-  S.scr="stop_select";S.sf="";S.ss=false;S.showTimetable=false;S.targetBus=null;
-  S.showFavInStop=true;
-  render();
 }
 
 function favKey(){return(S.gurl||"")+"|"+(S.route&&S.route.stopId?S.route.stopId:"");}
