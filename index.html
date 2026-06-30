@@ -646,7 +646,7 @@ function selectStop(sid){
     S.cachedFiles=d.files;
     var ns2=res.stops.map(function(x){return{id:x.id,name:x.name,lat:x.lat,lon:x.lon};});
     var ni=0;for(var i=0;i<res.stops.length;i++){if(res.stops[i].id===sid){ni=i;break;}}
-    var nr={name:res.name,stops:ns2,schedules:res.schedules,arrivalTimes:res.arrivalTimes,iv:3,tm:res.tm,stopId:sid,timetable:timetable};
+    var nr={name:res.name,stops:ns2,schedules:res.schedules,arrivalTimes:res.arrivalTimes,iv:3,tm:res.tm,stopId:sid,timetable:timetable,routeTripIds:res.routeTripIds,stopTimes:res.stopTimes};
     sv({route:nr,ti:ni,gurl:S.gurl,rid:S.rid,hasRT:S.hasRT,nm:S.nm,ns:S.ns,nm2:S.nm2,companyName:S.companyName});
     S.route=nr;S.ti=ni;S.nids=[];S.targetBus=null;S.scr="monitor";
     if(S.rid)srt();render();
