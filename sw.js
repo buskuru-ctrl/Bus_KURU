@@ -1,24 +1,26 @@
-// バスクル サービスワーカー（v1：通知表示テスト用）
-// このファイルは画面を閉じていてもスマホの中で生き続け、通知を表示する役目を持つ
-
-// インストール時：すぐに新しいサービスワーカーに切り替える
-self.addEventListener('install', function(event) {
-  self.skipWaiting();
+self.addEventListener('push',function(event){
+  var data={title:'🚌 バスクル',body:'バスが近づいています！'};
+  if(event.data){try{data=event.data.json();}catch(e){}}
+  event.waitUntil(
+    self.registration.showNotification(data.title||'🚌 バスクル',{
+      body:data.body||'バスが近づいています！',
+      icon:'/Bus_KURU/icon-192.png',
+      tag:'buskuru',
+      requireInteraction:false,
+      vibrate:[200,100,200]
+    })
+  );
 });
-
-// 有効化時：すぐにこのサービスワーカーを使い始める
-self.addEventListener('activate', function(event) {
-  event.waitUntil(self.clients.claim());
+self.addEventListener('notificationclick',function(event){
+  event.notification.close();
+  event.waitUntil(clients.openWindow('/Bus_KURU/'));
 });
-
-// テスト通知を画面側（バスクルのHTML）から受け取って表示する
-// ※今はまだサーバーからのプッシュには対応していません（次のステップで対応）
-self.addEventListener('message', function(event) {
-  if (event.data && event.data.type === 'TEST_NOTIFICATION') {
-    self.registration.showNotification('🚌 バスクル（テスト通知）', {
-      body: event.data.body || 'サービスワーカーは正常に動いています！',
-      icon: undefined,
-      tag: 'bk-test'
+self.addEventListener('message',function(event){
+  if(event.data&&event.data.type==='TEST_NOTIFICATION'){
+    self.registration.showNotification('🚌 バスクル テスト',{
+      body:event.data.body||'テスト通知です！',
+      tag:'buskuru-test',
+      vibrate:[200,100,200]
     });
   }
 });
