@@ -157,6 +157,35 @@ function gpsToRoutePos(lat,lon,stops){
   return bestIdx;
 }
 
+function buildStopsForTrip(files,tripId){
+  var st=csv(files["stops.txt"]||""),stm=csv(files["stop_times.txt"]||"");
+  var ts=stm.filter(function(r){return r.trip_id===tripId;}).sort(function(a,b){return+a.stop_sequence-+b.stop_sequence;});
+  return ts.map(function(r){
+    var s=st.filter(function(x){return x.stop_id===r.stop_id;})[0];
+    return{id:r.stop_id,name:s?s.stop_name:r.stop_id,lat:s&&s.stop_lat?parseFloat(s.stop_lat):null,lon:s&&s.stop_lon?parseFloat(s.stop_lon):null};
+  });
+}
+
+function restoreDefaultStops(){
+  if(!S.route||!S.route.defaultStops)return;
+  S.route.stops=S.route.defaultStops.slice();
+  var idx=0;
+  for(var i=0;i<S.route.stops.length;i++){if(S.route.stops[i].id===S.route.stopId){idx=i;break;}}
+  S.ti=idx;
+}
+
+function changeBoardingStop(stopId){
+  restoreDefaultStops();
+  var idx=0;
+  for(var i=0;i<S.route.stops.length;i++){if(S.route.stops[i].id===stopId){idx=i;break;}}
+  S.ti=idx;S.nids=[];S.targetBus=null;
+  S.route.stopId=stopId;
+  updatePushSettings();
+  if(S.cachedFiles){var tt=buildTimetable(S.cachedFiles,stopId);S.route.timetable=tt;}
+  sv({route:S.route,ti:idx,gurl:S.gurl,rid:S.rid,hasRT:S.hasRT,nm:S.nm,ns:S.ns,nm2:S.nm2,companyName:S.companyName});
+  render();
+}
+
 function buildRoute(f,sid,serviceIds){
   var st=csv(f["stops.txt"]),stm=csv(f["stop_times.txt"]),tr=csv(f["trips.txt"]),ro=csv(f["routes.txt"]);
   var validTripIds=new Set();
