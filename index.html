@@ -286,8 +286,21 @@ function selectTargetBus(timeStr,headsign){
   if(S.targetBus&&S.targetBus.timeStr===timeStr&&S.targetBus.headsign===headsign){
     S.targetBus=null;
     S.nids=[];
+    restoreDefaultStops();
     updatePushSettings();
     render();return;
+  }
+  var tripId=findTripIdByTimeAndHeadsign(timeStr,headsign);
+  if(tripId&&S.cachedFiles){
+    var newStops=buildStopsForTrip(S.cachedFiles,tripId);
+    if(newStops.length){
+      var newIdx=-1;
+      for(var i=0;i<newStops.length;i++){if(newStops[i].id===S.route.stopId){newIdx=i;break;}}
+      if(newIdx>=0){
+        S.route.stops=newStops;
+        S.ti=newIdx;
+      }
+    }
   }
   S.targetBus={timeStr:timeStr,headsign:headsign,arrivalMin:arrivalMin};
   S.nids=[];
@@ -555,7 +568,7 @@ function drt(fromButton){
 
 setInterval(function(){
   S.now=gn();S.theme=getTheme();S.dayType=getDayType();
-  if(S.targetBus&&S.targetBus.arrivalMin<S.now-5){S.targetBus=null;S.nids=[];}
+  if(S.targetBus&&S.targetBus.arrivalMin<S.now-5){S.targetBus=null;S.nids=[];restoreDefaultStops();}
   S.buses=gb();
   cn();
   if(S.scr==="monitor"){
@@ -663,7 +676,7 @@ function selectStop(sid){
     S.cachedFiles=d.files;
     var ns2=res.stops.map(function(x){return{id:x.id,name:x.name,lat:x.lat,lon:x.lon};});
     var ni=0;for(var i=0;i<res.stops.length;i++){if(res.stops[i].id===sid){ni=i;break;}}
-    var nr={name:res.name,stops:ns2,schedules:res.schedules,arrivalTimes:res.arrivalTimes,iv:3,tm:res.tm,stopId:sid,timetable:timetable,routeTripIds:res.routeTripIds,stopTimes:res.stopTimes};
+    var nr={name:res.name,stops:ns2,defaultStops:ns2.slice(),schedules:res.schedules,arrivalTimes:res.arrivalTimes,iv:3,tm:res.tm,stopId:sid,timetable:timetable,routeTripIds:res.routeTripIds,stopTimes:res.stopTimes};
     sv({route:nr,ti:ni,gurl:S.gurl,rid:S.rid,hasRT:S.hasRT,nm:S.nm,ns:S.ns,nm2:S.nm2,companyName:S.companyName});
     S.route=nr;S.ti=ni;S.nids=[];S.targetBus=null;S.scr="monitor";
     if(S.rid)srt();render();
@@ -674,7 +687,7 @@ function am(){
   var stops=S.ms.split("\n").map(function(x){return x.trim();}).filter(Boolean).map(function(n,i){return{id:"m"+i,name:n,lat:null,lon:null};});
   var sc2=S.mt.split("\n").map(function(x){return x.trim();}).filter(function(x){return/^\d{1,2}:\d{2}$/.test(x);});
   if(stops.length<2){alert("停留所を2つ以上");return;}if(!sc2.length){alert("時刻表を入力してください");return;}
-  var nr={name:S.mn||"手動入力路線",stops:stops,schedules:sc2,arrivalTimes:sc2,iv:parseFloat(S.mi)||3};
+  var nr={name:S.mn||"手動入力路線",stops:stops,defaultStops:stops.slice(),schedules:sc2,arrivalTimes:sc2,iv:parseFloat(S.mi)||3};
   S.companyName="";
   sv({route:nr,ti:stops.length-1,nm:S.nm,ns:S.ns,nm2:S.nm2,companyName:""});
   S.route=nr;S.ti=stops.length-1;S.nids=[];S.rid=null;S.hasRT=false;S.targetBus=null;S.scr="monitor";render();
@@ -757,7 +770,7 @@ function renderTimetable(T){
   if(S.targetBus){
     html+='<div style="background:'+T.acc+'22;border:1px solid '+T.acc+'66;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:'+T.acc+';display:flex;align-items:center;justify-content:space-between">'
     +'<span>🎯 '+e(ft(S.targetBus.arrivalMin))+' '+e(S.targetBus.headsign||"")+'を通知対象中</span>'
-    +'<button onclick="S.targetBus=null;S.nids=[];updatePushSettings();render()" style="background:none;border:none;color:'+T.sub+';font-size:12px;cursor:pointer">解除</button>'
+    +'<button onclick="S.targetBus=null;S.nids=[];restoreDefaultStops();updatePushSettings();render()" style="background:none;border:none;color:'+T.sub+';font-size:12px;cursor:pointer">解除</button>';
     +'</div>';
   }
   if(!entries.length){
@@ -1116,7 +1129,8 @@ function render(){
     }
   }
 
-  // ── バス位置ライン ──
+  // ── バス位置ライン（バスを指定しているときだけ表示）──
+  if(S.targetBus){
   html+='<div style="background:'+T.card+';border-radius:16px;padding:14px 12px;border:1px solid '+T.border+';margin-bottom:14px">'
   +'<div style="font-size:11px;color:'+T.sub+';margin-bottom:10px;padding-left:6px;display:flex;justify-content:space-between">'
   +'<span>バスの現在位置'+(isGPS?' <span style="color:#22c55e">GPS</span>':' <span style="color:'+T.sub+'">推定</span>')+'</span>'
@@ -1138,6 +1152,7 @@ function render(){
     +'</div></div>';
   });
   html+='</div></div>';
+  }
 
   app.innerHTML=html;
 }
