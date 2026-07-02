@@ -1036,6 +1036,8 @@ function render(){
       html+='<button onclick="changeBoardingStop(\''+s.id+'\')" style="padding:8px 12px;background:'+(S.ti===i?T.acc+"22":T.bg)+';border:1px solid '+(S.ti===i?T.acc:T.border)+';border-radius:8px;color:'+(S.ti===i?T.acc:T.sub)+';text-align:left;font-size:13px;cursor:pointer;font-family:inherit">'
       +'<span style="opacity:0.4;margin-right:6px;font-size:10px">'+(i+1)+'</span>'+e(s.name)+'</button>';
     });
+    html+='</div></div>'
+    +'</div>';
   }
 
   // ── 時刻表 ──
