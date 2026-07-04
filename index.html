@@ -967,7 +967,7 @@ function render(){
   // ── 通知設定 ──
   var notifPerm=('Notification' in window)?Notification.permission:'denied';
   html+='<button onclick="S.ss=!S.ss;render()" class="btn" style="width:100%;padding:11px;background:'+T.card+';border:1px solid '+(S.targetBus?T.acc:T.border)+';border-radius:12px;color:'+(S.targetBus?T.acc:T.sub)+';font-size:13px;margin-bottom:'+(S.ss?"0":"14px")+'">'
-  +(S.targetBus?'🎯 '+ft(S.targetBus.arrivalMin)+' '+e(S.targetBus.headsign||"")+'を通知対象中':'⚙️ 通知設定')
+  +(S.targetBus?'⚙️ 通知設定（🎯 '+ft(S.targetBus.arrivalMin)+'）':'⚙️ 通知設定')
   +' '+(S.ss?"▲":"▼")+'</button>';
 
   if(S.ss){
@@ -1173,13 +1173,10 @@ render();
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('./sw.js').then(function(reg){
     console.log('サービスワーカー登録成功');
-    // 既存のプッシュ購読があれば届け先を復元する。もし通知は許可されているのに
-    // 購読が見つからない場合は、繋がりが切れているとみなして自動で繋ぎ直す
+    // 通知が許可されているなら、繋がりを確実にするため毎回サーバーに登録し直す
     reg.pushManager.getSubscription().then(function(sub){
-      if(sub){
-        S.pushEndpoint=sub.endpoint;
-      }else if(window.Notification&&Notification.permission==='granted'){
-        console.log('購読が見つからないため再登録します');
+      if(sub)S.pushEndpoint=sub.endpoint;
+      if(window.Notification&&Notification.permission==='granted'){
         subscribePush();
       }
     });
