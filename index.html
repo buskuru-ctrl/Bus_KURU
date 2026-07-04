@@ -1173,9 +1173,15 @@ render();
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('./sw.js').then(function(reg){
     console.log('サービスワーカー登録成功');
-    // 既存のプッシュ購読があれば届け先を復元する
+    // 既存のプッシュ購読があれば届け先を復元する。もし通知は許可されているのに
+    // 購読が見つからない場合は、繋がりが切れているとみなして自動で繋ぎ直す
     reg.pushManager.getSubscription().then(function(sub){
-      if(sub)S.pushEndpoint=sub.endpoint;
+      if(sub){
+        S.pushEndpoint=sub.endpoint;
+      }else if(window.Notification&&Notification.permission==='granted'){
+        console.log('購読が見つからないため再登録します');
+        subscribePush();
+      }
     });
   }).catch(function(err){
     console.log('サービスワーカー登録失敗:', err);
