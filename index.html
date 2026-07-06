@@ -575,9 +575,9 @@ function drt(fromButton){
       S.rv=d.vehicles||[];S.rd=d.delays||{};S.re="";S.lu=Date.now();
       var nowMs=Date.now();
       S.rv.forEach(function(v){if(v.tripId)S.lastGpsTime[v.tripId]=nowMs;});
+      S.buses=gb();
       if(fromButton){
-        var buses=gb();
-        var hasGPS=buses.some(function(b){return b.rt;});
+        var hasGPS=S.buses.some(function(b){return b.rt;});
         S.gpsStatus=hasGPS?"found":"timetable";
       }
     }else{
