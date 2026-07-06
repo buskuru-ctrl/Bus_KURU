@@ -143,6 +143,11 @@ function computeDiaException(calendarTxt,calendarDatesTxt){
   var byDayType=getServiceIdsByDayType(calendarTxt);
   var todaySet=getTodayServiceIds(calendarTxt,calendarDatesTxt);
   var expected=(getDayType()==="holiday")?byDayType.holiday:byDayType.weekday;
+  console.log('ダイヤ判定デバッグ：平日パターン件数',byDayType.weekday.size,'／土日祝パターン件数',byDayType.holiday.size,'／今日の便件数',todaySet.size);
+  if(byDayType.weekday.size===0&&byDayType.holiday.size===0){
+    console.log('ダイヤ判定デバッグ：曜日パターンのデータが無いため、特別ダイヤ判定はスキップします');
+    return false;
+  }
   return !isSameServiceSet(todaySet,expected);
 }
 function getServiceIdsByDayType(calendarTxt){
