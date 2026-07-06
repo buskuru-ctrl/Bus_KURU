@@ -846,9 +846,7 @@ function renderTimetable(T){
 function renderDiaBadge(T){
   var label=S.timetableDayType==="holiday"?"🗓️ 土日祝ダイヤ":"🗓️ 平日ダイヤ";
   var html='<div style="font-size:11px;color:'+T.sub+';margin-bottom:8px;text-align:center">'+label;
-  if(S.diaException){
-    html+='<br><span style="color:#f97316">⚠️ 今日は特別ダイヤの可能性があります。公式サイトでご確認ください</span>';
-  }
+  
   html+='</div>';
   return html;
 }
