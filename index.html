@@ -67,6 +67,7 @@ diaException:false,
   theme:getTheme(),dayType:getDayType(),
   targetBus:null,
   lockedTripId:null,lockedAt:0,
+  lastTargetPos:null,lastBestPos:null,
   lastGpsTime:{},
   LOCK_DURATION:30000,
   GPS_EXPIRE:60000,
@@ -132,11 +133,17 @@ function getTodayServiceIds(calendarTxt,calendarDatesTxt){
   return ids;
 }
 
-function hasScheduleExceptionToday(calendarDatesTxt){
-  if(!calendarDatesTxt)return false;
-  var today=new Date();
-  var todayStr=today.getFullYear()+("0"+(today.getMonth()+1)).slice(-2)+("0"+today.getDate()).slice(-2);
-  return csv(calendarDatesTxt).some(function(r){return r.date===todayStr;});
+function isSameServiceSet(a,b){
+  if(a.size!==b.size)return false;
+  var same=true;
+  a.forEach(function(v){if(!b.has(v))same=false;});
+  return same;
+}
+function computeDiaException(calendarTxt,calendarDatesTxt){
+  var byDayType=getServiceIdsByDayType(calendarTxt);
+  var todaySet=getTodayServiceIds(calendarTxt,calendarDatesTxt);
+  var expected=(getDayType()==="holiday")?byDayType.holiday:byDayType.weekday;
+  return !isSameServiceSet(todaySet,expected);
 }
 function getServiceIdsByDayType(calendarTxt){
   var weekdayIds=new Set(),holidayIds=new Set();
@@ -194,7 +201,7 @@ function changeBoardingStop(stopId){
   restoreDefaultStops();
   var idx=0;
   for(var i=0;i<S.route.stops.length;i++){if(S.route.stops[i].id===stopId){idx=i;break;}}
-  S.ti=idx;S.nids=[];S.targetBus=null;
+  S.ti=idx;S.nids=[];S.targetBus=null;S.lastTargetPos=null;S.lastBestPos=null;
   S.route.stopId=stopId;
   updatePushSettings();
   if(S.cachedFiles){var tt=buildTimetable(S.cachedFiles,stopId);S.route.timetable=tt;}
@@ -302,6 +309,7 @@ function selectTargetBus(timeStr,headsign){
   if(S.targetBus&&S.targetBus.timeStr===timeStr&&S.targetBus.headsign===headsign){
     S.targetBus=null;
     S.nids=[];
+    S.lastTargetPos=null;
     restoreDefaultStops();
     updatePushSettings();
     saveState();
@@ -321,6 +329,7 @@ function selectTargetBus(timeStr,headsign){
   }
   S.targetBus={timeStr:timeStr,headsign:headsign,arrivalMin:arrivalMin};
   S.nids=[];
+  S.lastTargetPos=null;
   updatePushSettings();
   saveState();
   render();
@@ -417,6 +426,7 @@ function gb(){
       if(still)return S.lockedTripId;
     }
     var best=getBestTripId();
+    if(best&&best!==S.lockedTripId){S.lastBestPos=null;}
     if(best){S.lockedTripId=best;S.lockedAt=nowMs;}
     return best;
   }
@@ -432,6 +442,8 @@ function gb(){
         if(stopsHaveCoords&&v.lat&&v.lon){
           var pos=gpsToRoutePos(v.lat,v.lon,S.route.stops);
           if(pos>=0){
+            if(S.lastTargetPos!=null&&pos<S.lastTargetPos-0.5){pos=S.lastTargetPos;}
+            S.lastTargetPos=pos;
             if(pos>S.ti+0.5)return[{id:"target-timetable",times:[],pos:-1,mtt:mtt,dl:0,rt:false}];
             var dl=(S.rd[targetTripId]||0)/60;
             var gMtt=null;
@@ -488,7 +500,9 @@ function gb(){
         if(stopsHaveCoords&&v2.lat&&v2.lon){
           var pos2=gpsToRoutePos(v2.lat,v2.lon,S.route.stops);
           if(pos2>=0){
-            if(pos2>S.ti+0.5){S.lockedTripId=null;S.lockedAt=0;return[];}
+            if(S.lastBestPos!=null&&pos2<S.lastBestPos-0.5){pos2=S.lastBestPos;}
+            S.lastBestPos=pos2;
+            if(pos2>S.ti+0.5){S.lockedTripId=null;S.lockedAt=0;S.lastBestPos=null;return[];}
             var mtt2=getMttFromStopTimes(bestTripId,Math.round(pos2));
             if(mtt2===null){var stopsLeft2=S.ti-pos2;mtt2=stopsLeft2*iv+dl2;}
             if(mtt2>-5){return[{id:"r-"+bestTripId,times:[],pos:pos2,mtt:mtt2,dl:dl2,rt:true,lat:v2.lat,lon:v2.lon}];}
@@ -586,7 +600,7 @@ function drt(fromButton){
 
 setInterval(function(){
   S.now=gn();S.theme=getTheme();S.dayType=getDayType();
-  if(S.targetBus&&S.targetBus.arrivalMin<S.now-5){S.targetBus=null;S.nids=[];restoreDefaultStops();}
+  if(S.targetBus&&S.targetBus.arrivalMin<S.now-5){S.targetBus=null;S.nids=[];S.lastTargetPos=null;restoreDefaultStops();}
   S.buses=gb();
   cn();
   if(S.scr==="monitor"){
@@ -691,13 +705,14 @@ function selectStop(sid){
     if(!res){res=buildRoute(d.files,sid,null);if(!res)throw new Error("便が見つかりません");}
     var timetable=buildTimetable(d.files,sid);
     S.timetableDayType=getDayType();
-    S.diaException=hasScheduleExceptionToday(d.files["calendar_dates.txt"]);
+    S.diaException=computeDiaException(d.files["calendar.txt"],d.files["calendar_dates.txt"]);
     if(d.files["trips.txt"]&&d.files["stop_times.txt"])S.stopsWithDest=buildStopsWithDest(d.files);
     S.cachedFiles=d.files;
     var ns2=res.stops.map(function(x){return{id:x.id,name:x.name,lat:x.lat,lon:x.lon};});
     var ni=0;for(var i=0;i<res.stops.length;i++){if(res.stops[i].id===sid){ni=i;break;}}
     var nr={name:res.name,stops:ns2,defaultStops:ns2.slice(),schedules:res.schedules,arrivalTimes:res.arrivalTimes,iv:3,tm:res.tm,stopId:sid,timetable:timetable,routeTripIds:res.routeTripIds,stopTimes:res.stopTimes};
     S.route=nr;S.ti=ni;S.nids=[];S.targetBus=null;S.scr="monitor";
+    S.lastTargetPos=null;S.lastBestPos=null;S.lockedTripId=null;S.lockedAt=0;
     saveState();saveScreen('monitor');
     if(S.rid)srt();render();
   }).catch(function(ex){S.le=ex.message;S.scr="stop_select";render();});
@@ -790,7 +805,7 @@ function renderTimetable(T){
   if(S.targetBus){
     html+='<div style="background:'+T.acc+'22;border:1px solid '+T.acc+'66;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:'+T.acc+';display:flex;align-items:center;justify-content:space-between">'
     +'<span>🎯 '+e(ft(S.targetBus.arrivalMin))+' '+e(S.targetBus.headsign||"")+'を通知対象中</span>'
-    +'<button onclick="S.targetBus=null;S.nids=[];restoreDefaultStops();updatePushSettings();saveState();render()" style="background:none;border:none;color:'+T.sub+';font-size:12px;cursor:pointer">解除</button>'
+    +'<button onclick="S.targetBus=null;S.nids=[];S.lastTargetPos=null;restoreDefaultStops();updatePushSettings();saveState();render()" style="background:none;border:none;color:'+T.sub+';font-size:12px;cursor:pointer">解除</button>'
     +'</div>';
   }
   if(!entries.length){
@@ -1211,6 +1226,9 @@ if(savedScr!=='welcome'&&cfg&&cfg.route){
       if(!d.error){
         S.cachedFiles=d.files;S.stops=csv(d.files["stops.txt"]);
         if(d.files["trips.txt"]&&d.files["stop_times.txt"])S.stopsWithDest=buildStopsWithDest(d.files);
+        S.timetableDayType=getDayType();
+        S.diaException=computeDiaException(d.files["calendar.txt"],d.files["calendar_dates.txt"]);
+        render();
       }
     }).catch(function(ex){});
   }
