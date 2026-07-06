@@ -309,6 +309,22 @@ function findTripIdByTimeAndHeadsign(timeStr,headsign){
   return null;
 }
 
+// 「〇つ前」「〇分前」の設定から、実際の時刻表データをもとに
+// 「何時何分になったら通知を送るべきか」を正確に計算する（決め打ちの計算は一切使わない）
+function getNotifyAtMin(){
+  if(!S.targetBus)return null;
+  if(S.nm==="minutes"){
+    return S.targetBus.arrivalMin-S.nm2;
+  }
+  var tripId=findTripIdByTimeAndHeadsign(S.targetBus.timeStr,S.targetBus.headsign);
+  var idx=Math.max(0,S.ti-S.ns);
+  var stopObj=S.route&&S.route.stops?S.route.stops[idx]:null;
+  if(tripId&&stopObj&&S.route.stopTimes&&S.route.stopTimes[tripId]&&S.route.stopTimes[tripId][stopObj.id]){
+    return pt(S.route.stopTimes[tripId][stopObj.id]);
+  }
+  return null;
+}
+
 function selectTargetBus(timeStr,headsign){
   var arrivalMin=pt(timeStr);
   if(S.targetBus&&S.targetBus.timeStr===timeStr&&S.targetBus.headsign===headsign){
@@ -367,6 +383,7 @@ function subscribePush(){
               rid:S.rid,
               targetBus:S.targetBus,
               nm:S.nm,nm2:S.nm2,ns:S.ns,
+              notifyAtMin:getNotifyAtMin(),
               gurl:S.gurl,companyName:S.companyName
             }
           })
@@ -394,6 +411,7 @@ function updatePushSettings(){
         rid:S.rid,
         targetBus:S.targetBus,
         nm:S.nm,nm2:S.nm2,ns:S.ns,
+        notifyAtMin:getNotifyAtMin(),
         gurl:S.gurl,companyName:S.companyName
       }
     })
