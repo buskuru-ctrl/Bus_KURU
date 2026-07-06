@@ -59,7 +59,8 @@ var S={
   sq:"",sr:[],lm:"",le:"",
   nm:"stops",ns:2,nm2:5,
   ban:null,nids:[],now:0,ss:false,
-  showTimetable:false,timetableDayType:"weekday",
+  showTimetable:false,timetableDayType:getDayType(),
+diaException:false,
   rv:[],rd:{},re:"",lu:0,
   mn:"",ms:"",mt:"",mi:"3",
   favorites:[],
@@ -131,6 +132,12 @@ function getTodayServiceIds(calendarTxt,calendarDatesTxt){
   return ids;
 }
 
+function hasScheduleExceptionToday(calendarDatesTxt){
+  if(!calendarDatesTxt)return false;
+  var today=new Date();
+  var todayStr=today.getFullYear()+("0"+(today.getMonth()+1)).slice(-2)+("0"+today.getDate()).slice(-2);
+  return csv(calendarDatesTxt).some(function(r){return r.date===todayStr;});
+}
 function getServiceIdsByDayType(calendarTxt){
   var weekdayIds=new Set(),holidayIds=new Set();
   if(!calendarTxt)return{weekday:weekdayIds,holiday:holidayIds};
@@ -683,6 +690,8 @@ function selectStop(sid){
     var res=buildRoute(d.files,sid,serviceIds);
     if(!res){res=buildRoute(d.files,sid,null);if(!res)throw new Error("便が見つかりません");}
     var timetable=buildTimetable(d.files,sid);
+    S.timetableDayType=getDayType();
+    S.diaException=hasScheduleExceptionToday(d.files["calendar_dates.txt"]);
     if(d.files["trips.txt"]&&d.files["stop_times.txt"])S.stopsWithDest=buildStopsWithDest(d.files);
     S.cachedFiles=d.files;
     var ns2=res.stops.map(function(x){return{id:x.id,name:x.name,lat:x.lat,lon:x.lon};});
@@ -814,6 +823,15 @@ function renderTimetable(T){
   return html;
 }
 
+function renderDiaBadge(T){
+  var label=S.timetableDayType==="holiday"?"🗓️ 土日祝ダイヤ":"🗓️ 平日ダイヤ";
+  var html='<div style="font-size:11px;color:'+T.sub+';margin-bottom:8px;text-align:center">'+label;
+  if(S.diaException){
+    html+='<br><span style="color:#f97316">⚠️ 今日は特別ダイヤの可能性があります。公式サイトでご確認ください</span>';
+  }
+  html+='</div>';
+  return html;
+}
 function render(){
   var T=TH[S.theme];
   document.body.style.background=T.bg;
@@ -1071,6 +1089,7 @@ function render(){
   }
 
   // ── カウントダウン ──
+  html+=renderDiaBadge(T);
   if(nx){
     var dl=nx.dl>0.5?'<div style="font-size:11px;color:#f97316;margin-top:3px">⚠️ '+Math.round(nx.dl)+'分遅れ</div>':nx.dl<-0.5?'<div style="font-size:11px;color:#22c55e;margin-top:3px">✓ '+Math.round(-nx.dl)+'分早め</div>':"";
     var gpsLabel=isGPS
