@@ -1215,7 +1215,12 @@ try{savedScr=localStorage.getItem('bk_scr');}catch(x){}
 if(savedScr!=='welcome'&&cfg&&cfg.route){
   S.route=cfg.route;
   if(S.route.routeTripIds&&!(S.route.routeTripIds instanceof Set)){
-    S.route.routeTripIds=new Set(S.route.routeTripIds);
+    try{
+      S.route.routeTripIds=new Set(S.route.routeTripIds);
+    }catch(exSet){
+      S.route.routeTripIds=new Set();
+    }
+  }
   }
   S.ti=cfg.ti||0;
   S.gurl=cfg.gurl||null;S.rid=cfg.rid||null;S.hasRT=cfg.hasRT||false;
