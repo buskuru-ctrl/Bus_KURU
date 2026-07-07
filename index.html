@@ -863,7 +863,7 @@ function renderTimetable(T){
     Object.keys(groups).sort().forEach(function(h){
       var items=groups[h];
       var isNowHour=Math.floor(S.now/60)===parseInt(h);
-      html+='<tr><td style="font-size:13px;font-weight:700;color:'+T.acc+';padding:4px 8px 4px 0;vertical-align:top;white-space:nowrap">'+h+'時</td>'
+      html+='<tr id="tt-hour-'+parseInt(h)+'"><td style="font-size:13px;font-weight:700;color:'+T.acc+';padding:4px 8px 4px 0;vertical-align:top;white-space:nowrap">'+h+'時</td>'
       +'<td style="font-size:13px;padding:4px 0;line-height:2">';
       items.forEach(function(item){
         var isPast=isNowHour&&parseInt(item.min)<Math.round(S.now%60);
@@ -1034,7 +1034,7 @@ function render(){
   var ri="";
   if(S.rid){var sa=S.lu?Math.round((Date.now()-S.lu)/1000):null;ri=S.re?'<span style="color:#ef4444;font-size:10px">● RTエラー</span>':sa!==null?'<span style="color:#22c55e;font-size:10px;animation:pulse 2s infinite">● '+(sa<60?sa+"秒前":Math.round(sa/60)+"分前")+'</span>':'<span style="color:'+T.sub+';font-size:10px">● 取得中</span>';}
 
-  // ── ヘッダー ──
+  // ── ヘッダー（固定表示エリア：会社名・時刻・ボタン・通知設定・カウントダウンをまとめて画面上部に固定）──
   html+='<div style="background:'+T.hdr+';padding:14px 14px 0;margin:-14px -14px 0;position:sticky;top:0;z-index:100">'
   +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
   +'<span style="font-size:22px;animation:float 2.5s ease-in-out infinite">🚌</span>'
@@ -1049,106 +1049,17 @@ function render(){
   +'<div style="display:flex;gap:6px;padding-bottom:12px">'
   +'<button onclick="goChangeCompany()" style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;cursor:pointer;font-family:inherit">🔄 バス会社を変更</button>'
   +'<button onclick="goChangeStop()" style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;cursor:pointer;font-family:inherit">🚏 バス停を変更</button>'
-  +'<button onclick="S.showTimetable=!S.showTimetable;render()" style="flex:1;padding:7px;background:'+(S.showTimetable?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.15)")+';border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;cursor:pointer;font-family:inherit">📋 時刻表</button>'
-  +'</div></div>'
-  +'<div style="height:14px"></div>';
+  +'<button onclick="S.showTimetable=!S.showTimetable;if(S.showTimetable)S.ttScroll=true;render()" style="flex:1;padding:7px;background:'+(S.showTimetable?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.15)")+';border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;cursor:pointer;font-family:inherit">📋 時刻表</button>'
+  +'</div>';
 
-  // ── 通知設定 ──
+  // ── 通知設定ボタン（固定エリアに移動）──
   var notifPerm=('Notification' in window)?Notification.permission:'denied';
-  html+='<button onclick="S.ss=!S.ss;render()" class="btn" style="width:100%;padding:11px;background:'+T.card+';border:1px solid '+(S.targetBus?T.acc:T.border)+';border-radius:12px;color:'+(S.targetBus?T.acc:T.sub)+';font-size:13px;margin-bottom:'+(S.ss?"0":"14px")+'">'
+  html+='<div style="padding-bottom:10px">'
+  +'<button onclick="S.ss=!S.ss;render()" class="btn" style="width:100%;padding:11px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:12px;color:white;font-size:13px;margin-bottom:10px">'
   +(S.targetBus?'⚙️ 通知設定（🎯 '+ft(S.targetBus.arrivalMin)+'）':'⚙️ 通知設定')
   +' '+(S.ss?"▲":"▼")+'</button>';
 
-  if(S.ss){
-    html+='<div style="margin-bottom:14px">';
-
-    // targetBusが未選択のときは手順案内を表示してグレーアウト
-    if(!S.targetBus){
-      html+='<div style="background:'+T.card+';border-radius:14px;border:1px solid '+T.border+';padding:14px;margin-bottom:10px">'
-      +'<div style="font-size:12px;color:'+T.acc+';font-weight:700;margin-bottom:8px">🔔 通知を受け取るには</div>'
-      +'<div style="font-size:12px;color:'+T.sub+';line-height:2.2">'
-      +'<span style="color:'+T.acc+';font-weight:700">① </span>「📋 時刻表」ボタンを開く<br>'
-      +'<span style="color:'+T.acc+';font-weight:700">② </span>乗りたい便をタップして選ぶ<br>'
-      +'<span style="color:'+T.acc+';font-weight:700">③ </span>下の「スマホ通知をオンにする」をタップ'
-      +'</div></div>';
-    }
-
-    // 通知タイミング設定（便が選ばれていないときは薄くして操作不可）
-    html+='<div style="background:'+T.card+';border-radius:14px;padding:16px;border:1px solid '+T.border+';margin-bottom:10px;'
-    +(!S.targetBus?'opacity:0.4;pointer-events:none':'')
-    +'">'
-    +'<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:'+T.text+'">🔔 通知タイミング'
-    +(!S.targetBus?'<span style="font-size:11px;color:'+T.sub+';font-weight:400;margin-left:8px">便を選んでから設定できます</span>':'')
-    +'</div>'
-    +'<div style="display:flex;background:'+T.bg+';border-radius:10px;padding:3px;margin-bottom:10px">'
-    +'<button onclick="S.nm=\'stops\';updatePushSettings();render()" style="flex:1;padding:7px;border:none;border-radius:8px;background:'+(S.nm==="stops"?T.acc:"none")+';color:'+(S.nm==="stops"?"white":T.sub)+';font-size:12px;cursor:pointer;font-family:inherit">何つ前の停留所</button>'
-    +'<button onclick="S.nm=\'minutes\';updatePushSettings();render()" style="flex:1;padding:7px;border:none;border-radius:8px;background:'+(S.nm==="minutes"?T.acc:"none")+';color:'+(S.nm==="minutes"?"white":T.sub)+';font-size:12px;cursor:pointer;font-family:inherit">何分前</button>'
-    +'</div>';
-    if(S.nm==="stops"){
-      html+='<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:'+T.sub+';margin-bottom:8px"><span>前の停留所数</span><span style="color:'+T.acc+';font-weight:700">'+S.ns+'つ前</span></div>'
-      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
-      +'<button onclick="if(S.ns>1){S.ns--;updatePushSettings();render()}" style="width:36px;height:36px;border-radius:50%;background:'+T.bg+';border:1px solid '+T.border+';color:'+T.text+';font-size:18px;cursor:pointer;font-family:inherit;flex-shrink:0">－</button>'
-      +'<div style="flex:1;text-align:center;font-size:22px;font-weight:700;color:'+T.acc+'">'+S.ns+'</div>'
-      +'<button onclick="if(S.ns<Math.min(5,S.ti||5)){S.ns++;updatePushSettings();render()}" style="width:36px;height:36px;border-radius:50%;background:'+T.bg+';border:1px solid '+T.border+';color:'+T.text+';font-size:18px;cursor:pointer;font-family:inherit;flex-shrink:0">＋</button>'
-      +'</div>'
-      +'<div style="background:'+T.bg+';border-radius:8px;padding:7px 10px;font-size:12px;color:'+T.sub+'">📍 <span style="color:#a78bfa">'+(S.route.stops[Math.max(0,S.ti-S.ns)]?e(S.route.stops[Math.max(0,S.ti-S.ns)].name):"")+'</span></div>';
-    }else{
-      html+='<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:'+T.sub+';margin-bottom:8px"><span>到着前の分数</span><span style="color:'+T.acc+';font-weight:700">'+S.nm2+'分前</span></div>'
-      +'<div style="display:flex;align-items:center;gap:8px">'
-      +'<button onclick="if(S.nm2>1){S.nm2--;updatePushSettings();render()}" style="width:36px;height:36px;border-radius:50%;background:'+T.bg+';border:1px solid '+T.border+';color:'+T.text+';font-size:18px;cursor:pointer;font-family:inherit;flex-shrink:0">－</button>'
-      +'<div style="flex:1;text-align:center;font-size:22px;font-weight:700;color:'+T.acc+'">'+S.nm2+'</div>'
-      +'<button onclick="if(S.nm2<15){S.nm2++;updatePushSettings();render()}" style="width:36px;height:36px;border-radius:50%;background:'+T.bg+';border:1px solid '+T.border+';color:'+T.text+';font-size:18px;cursor:pointer;font-family:inherit;flex-shrink:0">＋</button>'
-      +'</div>';
-    }
-    html+='</div>';
-
-    // 通知許可ボタン（3状態）
-    if(notifPerm==='granted'){
-      html+='<div style="width:100%;padding:11px;background:#052e16;border:1px solid #16a34a;border-radius:12px;color:#22c55e;font-size:13px;text-align:center;margin-bottom:8px">'
-      +'✅ スマホ通知オン中<br>'
-      +'<span style="font-size:11px;color:'+T.sub+'">オフにするにはブラウザの設定から変更できます</span>'
-      +'</div>';
-    }else if(notifPerm==='denied'){
-      html+='<div style="width:100%;padding:11px;background:#431407;border:1px solid #ea580c;border-radius:12px;color:#f97316;font-size:13px;text-align:center;margin-bottom:8px">'
-      +'⚠️ 通知がブロックされています<br>'
-      +'<span style="font-size:11px">ブラウザの設定から「通知を許可」に変更してください</span>'
-      +'</div>';
-    }else{
-      html+='<button onclick="subscribePush()" class="btn" style="width:100%;padding:11px;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white;margin-bottom:8px">🔔 スマホ通知をオンにする</button>';
-    }
-
-    // 乗車停留所の選択
-    html+='<div style="background:'+T.card+';border-radius:14px;padding:16px;border:1px solid '+T.border+'">'
-    +'<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:'+T.text+'">🎯 乗車停留所</div>'
-    +'<div style="display:flex;flex-direction:column;gap:5px">';
-    S.route.stops.forEach(function(s,i){
-      html+='<button onclick="changeBoardingStop(\''+s.id+'\')" style="padding:8px 12px;background:'+(S.ti===i?T.acc+"22":T.bg)+';border:1px solid '+(S.ti===i?T.acc:T.border)+';border-radius:8px;color:'+(S.ti===i?T.acc:T.sub)+';text-align:left;font-size:13px;cursor:pointer;font-family:inherit">'
-      +'<span style="opacity:0.4;margin-right:6px;font-size:10px">'+(i+1)+'</span>'+e(s.name)+'</button>';
-    });
-    html+='</div></div>'
-    +'</div>';
-  }
-
-  // ── 時刻表 ──
-  if(S.showTimetable){html+=renderTimetable(T);}
-
-  if(!S.rid){
-    html+='<div style="background:'+T.card+';border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:'+T.sub+';border:1px solid '+T.border+';display:flex;align-items:center;gap:8px">'
-    +'<span>ℹ️</span><span>時刻表ベースでバス位置を推定しています</span></div>';
-  }
-
-  // ── 通知手順インフォカード（便が未選択のときだけ表示）──
-  if(!S.targetBus){
-    html+='<div style="background:'+T.card+';border-radius:14px;border:1px solid '+T.border+';padding:14px;margin-bottom:14px">'
-    +'<div style="font-size:13px;font-weight:700;color:'+T.text+';margin-bottom:8px">🔔 通知の受け取り方</div>'
-    +'<div style="font-size:12px;color:'+T.sub+';line-height:2.2">'
-    +'<span style="color:'+T.acc+';font-weight:700">① </span>「📋 時刻表」ボタンを開く<br>'
-    +'<span style="color:'+T.acc+';font-weight:700">② </span>乗りたい便をタップして選ぶ<br>'
-    +'<span style="color:'+T.acc+';font-weight:700">③ </span>「⚙️ 通知設定」から通知をオンにする'
-    +'</div></div>';
-  }
-
-  // ── カウントダウン ──
+  // ── カウントダウン（固定エリアに移動）──
   html+=renderDiaBadge(T);
   if(nx){
     var dl=nx.dl>0.5?'<div style="font-size:11px;color:#f97316;margin-top:3px">⚠️ '+Math.round(nx.dl)+'分遅れ</div>':nx.dl<-0.5?'<div style="font-size:11px;color:#22c55e;margin-top:3px">✓ '+Math.round(-nx.dl)+'分早め</div>':"";
@@ -1176,7 +1087,7 @@ function render(){
     +'</div>'
     +'<div id="gps-info-overlay" onclick="document.getElementById(\'gps-info-popup\').style.display=\'none\';document.getElementById(\'gps-info-overlay\').style.display=\'none\'" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:299"></div>';
     html+=infoPopup;
-    html+='<div style="background:'+(urg?"linear-gradient(135deg,#7f1d1d,#450a0a)":"linear-gradient(135deg,"+T.bg+","+T.card+")")+';border-radius:20px;padding:18px;border:1px solid '+(urg?"#ef4444":T.border)+';margin-bottom:14px;animation:'+(urg?"urgent 1.5s infinite":"none")+'">'
+    html+='<div style="background:'+(urg?"linear-gradient(135deg,#7f1d1d,#450a0a)":"linear-gradient(135deg,"+T.bg+","+T.card+")")+';border-radius:20px;padding:18px;border:1px solid '+(urg?"#ef4444":T.border)+';margin-bottom:0;animation:'+(urg?"urgent 1.5s infinite":"none")+'">'
     +'<div style="display:flex;justify-content:space-between;align-items:flex-start">'
     +'<div><div style="font-size:11px;color:'+(urg?"#f87171":T.sub)+';margin-bottom:4px">'+(urg?"⚡ もうすぐ！":"次のバスまで")+'</div>'
     +'<div><span style="font-size:48px;font-weight:900;color:'+(urg?"#fca5a5":T.text)+'">'+mins+'</span><span style="font-size:16px;color:'+(urg?"#f87171":T.sub)+'"> 分</span></div>'
@@ -1205,12 +1116,12 @@ function render(){
       +'</div>';
     }
     if(isInService){
-      html+='<div style="background:'+T.card+';border-radius:20px;padding:22px;border:1px solid '+T.border+';margin-bottom:14px;text-align:center">'
+      html+='<div style="background:'+T.card+';border-radius:20px;padding:22px;border:1px solid '+T.border+';margin-bottom:0;text-align:center">'
       +(nextInfo?nextStr:'<div style="font-size:14px;color:'+T.sub+'">次の便を確認中…</div>')
       +(S.route.timetable?'<div style="font-size:11px;color:'+T.sub+';margin-top:8px">「📋 時刻表」で詳細を確認できます</div>':"")
       +'</div>';
     }else{
-      html+='<div style="background:'+T.card+';border-radius:20px;padding:22px;border:1px solid '+T.border+';margin-bottom:14px;text-align:center">'
+      html+='<div style="background:'+T.card+';border-radius:20px;padding:22px;border:1px solid '+T.border+';margin-bottom:0;text-align:center">'
       +'<div style="font-size:28px;margin-bottom:8px">'+T.icon+'</div>'
       +'<div style="font-size:14px;color:'+T.sub+'">現在、運行時間外です</div>'
       +nextStr
@@ -1218,8 +1129,97 @@ function render(){
       +'</div>';
     }
   }
+  html+='</div>'
+  +'</div>'
+  +'<div style="height:14px"></div>';
 
-  // ── バス位置ライン（バスを指定しているときだけ表示）──
+  if(S.ss){
+    html+='<div style="margin-bottom:14px">';
+
+    if(!S.targetBus){
+      html+='<div style="background:'+T.card+';border-radius:14px;border:1px solid '+T.border+';padding:14px;margin-bottom:10px">'
+      +'<div style="font-size:12px;color:'+T.acc+';font-weight:700;margin-bottom:8px">🔔 通知を受け取るには</div>'
+      +'<div style="font-size:12px;color:'+T.sub+';line-height:2.2">'
+      +'<span style="color:'+T.acc+';font-weight:700">① </span>「📋 時刻表」ボタンを開く<br>'
+      +'<span style="color:'+T.acc+';font-weight:700">② </span>乗りたい便をタップして選ぶ<br>'
+      +'<span style="color:'+T.acc+';font-weight:700">③ </span>下の「スマホ通知をオンにする」をタップ'
+      +'</div></div>';
+    }
+
+    html+='<div style="background:'+T.card+';border-radius:14px;padding:16px;border:1px solid '+T.border+';margin-bottom:10px;'
+    +(!S.targetBus?'opacity:0.4;pointer-events:none':'')
+    +'">'
+    +'<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:'+T.text+'">🔔 通知タイミング'
+    +(!S.targetBus?'<span style="font-size:11px;color:'+T.sub+';font-weight:400;margin-left:8px">便を選んでから設定できます</span>':'')
+    +'</div>'
+    +'<div style="display:flex;background:'+T.bg+';border-radius:10px;padding:3px;margin-bottom:10px">'
+    +'<button onclick="S.nm=\'stops\';updatePushSettings();render()" style="flex:1;padding:7px;border:none;border-radius:8px;background:'+(S.nm==="stops"?T.acc:"none")+';color:'+(S.nm==="stops"?"white":T.sub)+';font-size:12px;cursor:pointer;font-family:inherit">何つ前の停留所</button>'
+    +'<button onclick="S.nm=\'minutes\';updatePushSettings();render()" style="flex:1;padding:7px;border:none;border-radius:8px;background:'+(S.nm==="minutes"?T.acc:"none")+';color:'+(S.nm==="minutes"?"white":T.sub)+';font-size:12px;cursor:pointer;font-family:inherit">何分前</button>'
+    +'</div>';
+    if(S.nm==="stops"){
+      html+='<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:'+T.sub+';margin-bottom:8px"><span>前の停留所数</span><span style="color:'+T.acc+';font-weight:700">'+S.ns+'つ前</span></div>'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">'
+      +'<button onclick="if(S.ns>1){S.ns--;updatePushSettings();render()}" style="width:36px;height:36px;border-radius:50%;background:'+T.bg+';border:1px solid '+T.border+';color:'+T.text+';font-size:18px;cursor:pointer;font-family:inherit;flex-shrink:0">－</button>'
+      +'<div style="flex:1;text-align:center;font-size:22px;font-weight:700;color:'+T.acc+'">'+S.ns+'</div>'
+      +'<button onclick="if(S.ns<Math.min(5,S.ti||5)){S.ns++;updatePushSettings();render()}" style="width:36px;height:36px;border-radius:50%;background:'+T.bg+';border:1px solid '+T.border+';color:'+T.text+';font-size:18px;cursor:pointer;font-family:inherit;flex-shrink:0">＋</button>'
+      +'</div>'
+      +'<div style="background:'+T.bg+';border-radius:8px;padding:7px 10px;font-size:12px;color:'+T.sub+'">📍 <span style="color:#a78bfa">'+(S.route.stops[Math.max(0,S.ti-S.ns)]?e(S.route.stops[Math.max(0,S.ti-S.ns)].name):"")+'</span></div>';
+    }else{
+      html+='<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:'+T.sub+';margin-bottom:8px"><span>到着前の分数</span><span style="color:'+T.acc+';font-weight:700">'+S.nm2+'分前</span></div>'
+      +'<div style="display:flex;align-items:center;gap:8px">'
+      +'<button onclick="if(S.nm2>1){S.nm2--;updatePushSettings();render()}" style="width:36px;height:36px;border-radius:50%;background:'+T.bg+';border:1px solid '+T.border+';color:'+T.text+';font-size:18px;cursor:pointer;font-family:inherit;flex-shrink:0">－</button>'
+      +'<div style="flex:1;text-align:center;font-size:22px;font-weight:700;color:'+T.acc+'">'+S.nm2+'</div>'
+      +'<button onclick="if(S.nm2<15){S.nm2++;updatePushSettings();render()}" style="width:36px;height:36px;border-radius:50%;background:'+T.bg+';border:1px solid '+T.border+';color:'+T.text+';font-size:18px;cursor:pointer;font-family:inherit;flex-shrink:0">＋</button>'
+      +'</div>';
+    }
+    html+='</div>';
+
+    if(notifPerm==='granted'){
+      html+='<div style="width:100%;padding:11px;background:#052e16;border:1px solid #16a34a;border-radius:12px;color:#22c55e;font-size:13px;text-align:center;margin-bottom:8px">'
+      +'✅ スマホ通知オン中<br>'
+      +'<span style="font-size:11px;color:'+T.sub+'">オフにするにはブラウザの設定から変更できます</span>'
+      +'</div>';
+    }else if(notifPerm==='denied'){
+      html+='<div style="width:100%;padding:11px;background:#431407;border:1px solid #ea580c;border-radius:12px;color:#f97316;font-size:13px;text-align:center;margin-bottom:8px">'
+      +'⚠️ 通知がブロックされています<br>'
+      +'<span style="font-size:11px">ブラウザの設定から「通知を許可」に変更してください</span>'
+      +'</div>';
+    }else{
+      html+='<button onclick="subscribePush()" class="btn" style="width:100%;padding:11px;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white;margin-bottom:8px">🔔 スマホ通知をオンにする</button>';
+    }
+
+    html+='<div style="background:'+T.card+';border-radius:14px;padding:16px;border:1px solid '+T.border+'">'
+    +'<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:'+T.text+'">🎯 乗車停留所</div>'
+    +'<div style="display:flex;flex-direction:column;gap:5px">';
+    S.route.stops.forEach(function(s,i){
+      html+='<button onclick="changeBoardingStop(\''+s.id+'\')" style="padding:8px 12px;background:'+(S.ti===i?T.acc+"22":T.bg)+';border:1px solid '+(S.ti===i?T.acc:T.border)+';border-radius:8px;color:'+(S.ti===i?T.acc:T.sub)+';text-align:left;font-size:13px;cursor:pointer;font-family:inherit">'
+      +'<span style="opacity:0.4;margin-right:6px;font-size:10px">'+(i+1)+'</span>'+e(s.name)+'</button>';
+    });
+    html+='</div></div>';
+
+    html+='<button onclick="updatePushSettings();S.ss=false;S.showTimetable=false;render()" class="btn" style="width:100%;padding:12px;background:linear-gradient(135deg,#059669,#0891b2);color:white;font-size:14px;margin-top:10px">✅ 設定を反映</button>';
+
+    html+='</div>';
+  }
+
+  // ── 時刻表 ──
+  if(S.showTimetable){html+=renderTimetable(T);}
+
+  if(!S.rid){
+    html+='<div style="background:'+T.card+';border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:'+T.sub+';border:1px solid '+T.border+';display:flex;align-items:center;gap:8px">'
+    +'<span>ℹ️</span><span>時刻表ベースでバス位置を推定しています</span></div>';
+  }
+
+  if(!S.targetBus){
+    html+='<div style="background:'+T.card+';border-radius:14px;border:1px solid '+T.border+';padding:14px;margin-bottom:14px">'
+    +'<div style="font-size:13px;font-weight:700;color:'+T.text+';margin-bottom:8px">🔔 通知の受け取り方</div>'
+    +'<div style="font-size:12px;color:'+T.sub+';line-height:2.2">'
+    +'<span style="color:'+T.acc+';font-weight:700">① </span>「📋 時刻表」ボタンを開く<br>'
+    +'<span style="color:'+T.acc+';font-weight:700">② </span>乗りたい便をタップして選ぶ<br>'
+    +'<span style="color:'+T.acc+';font-weight:700">③ </span>「⚙️ 通知設定」から通知をオンにする'
+    +'</div></div>';
+  }
+
   if(S.targetBus){
   html+='<div style="background:'+T.card+';border-radius:16px;padding:14px 12px;border:1px solid '+T.border+';margin-bottom:14px">'
   +'<div style="font-size:11px;color:'+T.sub+';margin-bottom:10px;padding-left:6px;display:flex;justify-content:space-between">'
@@ -1245,6 +1245,13 @@ function render(){
   }
 
   app.innerHTML=html;
+
+  // 時刻表を開いた直後だけ、今の時間帯まで自動でスクロールする
+  if(S.showTimetable&&S.ttScroll){
+    S.ttScroll=false;
+    var hourEl=document.getElementById('tt-hour-'+Math.floor(S.now/60));
+    if(hourEl)hourEl.scrollIntoView({block:'center'});
+  }
 }
 
 try{["buskuru","buskuru2","buskuru3","buskuru4","bk5","bk6","bk7","bk8"].forEach(function(k){localStorage.removeItem(k);});}catch(x){}
