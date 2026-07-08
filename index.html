@@ -488,8 +488,9 @@ function openFav(i){
 
 function renderFavModal(T){
   var m=S.favModal,hasBus=m.hasTargetBus;
-  var h='<div onclick="closeFavModal()" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:399"></div>'
-  +'<div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:400;background:'+T.card+';border:1px solid '+T.border+';border-radius:16px;padding:20px;max-width:340px;width:90vw;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.4)">'
+  var modalBg=(S.theme==="day")?"#ffffff":"#1c1430";
+  var h='<div onclick="closeFavModal()" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:399"></div>'
+  +'<div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:400;background:'+modalBg+';border:1px solid '+T.border+';border-radius:16px;padding:20px;max-width:340px;width:90vw;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.4)">'
   +'<div style="font-size:16px;font-weight:700;color:'+T.text+';margin-bottom:14px">⭐ お気に入り登録</div>';
   if(!hasBus){
     h+='<div style="font-size:12px;color:'+T.sub+';background:'+T.bg+';border-radius:8px;padding:10px;margin-bottom:12px">便が指定されていないため、この登録は「目印」としてのみ保存されます。通知を受け取りたい場合は、時刻表から便を選んでから登録してください。</div>';
@@ -1013,6 +1014,7 @@ function render(){
       hf+='<div style="background:'+T.card+';border-radius:14px;border:1px solid '+T.border+';overflow:hidden">';
       S.favorites.forEach(function(f,i){
         var displayName=f.label?f.label:f.stopName;
+        var subName=f.label?f.stopName:"";
         var busInfo=f.targetBus?('🎯 '+ft(f.targetBus.arrivalMin)+(f.targetBus.headsign?' '+f.targetBus.headsign:'')+(f.targetBus.dayOffset?'（翌日）':'')):'便未指定';
         var daysStr=(f.targetBus&&f.days)?DAY_KEYS.filter(function(d){return f.days[d];}).map(function(d){return DAY_LABELS[d];}).join(''):'';
         hf+='<div style="padding:14px;border-bottom:'+(i<S.favorites.length-1?"1px solid "+T.border:"none")+';display:flex;align-items:center;gap:10px">'
@@ -1020,6 +1022,7 @@ function render(){
         +'<div onclick="openFav('+i+')" style="flex:1;cursor:pointer">'
         +'<div style="font-size:13px;color:'+T.sub+'">'+e(f.companyName)+' ・ '+e(f.routeName)+'</div>'
         +'<div style="font-size:15px;font-weight:600;color:'+T.text+'">'+e(displayName)+'</div>'
+        +(subName?'<div style="font-size:11px;color:'+T.sub+'">🚏 '+e(subName)+'</div>':'')
         +'<div style="font-size:11px;color:'+T.acc+';margin-top:2px">'+e(busInfo)+(daysStr?'　'+daysStr:'')+'</div>'
         +'</div>'
         +(f.targetBus?'<div onclick="toggleFavNotify('+i+');event.stopPropagation()" style="width:40px;height:22px;border-radius:11px;background:'+(f.notifyEnabled?T.acc:T.border)+';position:relative;cursor:pointer;flex-shrink:0"><span style="position:absolute;top:2px;left:'+(f.notifyEnabled?"20px":"2px")+';width:18px;height:18px;border-radius:50%;background:white;transition:left 0.2s"></span></div>':'')
@@ -1028,6 +1031,7 @@ function render(){
       });
       hf+='</div>';
     }
+    if(S.favModal)hf+=renderFavModal(T);
     app.innerHTML=hf;return;
   }
 
