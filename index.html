@@ -726,6 +726,7 @@ function drt(fromButton){
       if(fromButton)S.gpsStatus="error";
     }
     cn();
+    if(S.favModal)return;
     if(S.scr==="monitor"){
       var popupOpen2=document.getElementById("gps-info-popup")&&document.getElementById("gps-info-popup").style.display==="block";
       if(popupOpen2){
@@ -749,6 +750,7 @@ setInterval(function(){
   if(S.targetBus&&targetEffectiveMin(S.targetBus)<S.now-5){S.targetBus=null;S.nids=[];S.lastTargetPos=null;restoreDefaultStops();}
   S.buses=gb();
   cn();
+  if(S.favModal)return;
   if(S.scr==="monitor"){
     var popupOpen=document.getElementById("gps-info-popup")&&document.getElementById("gps-info-popup").style.display==="block";
     if(popupOpen){
@@ -780,7 +782,7 @@ function playAlarm(){
 
 // 通知チェック（targetBusが選ばれていないときは何もしない、画面を開いているとき専用）
 function cn(){
-  if(S.scr!=="monitor"||!S.route||!S.targetBus)return;
+  if(S.scr!=="monitor"||!S.route||!S.targetBus||S.favModal)return;
   var buses=S.buses||gb();
   buses.forEach(function(b){
     if(S.nids.indexOf(b.id)>=0)return;
