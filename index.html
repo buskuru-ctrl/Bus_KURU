@@ -60,10 +60,11 @@ var S={
   nm:"stops",ns:2,nm2:5,
   ban:null,nids:[],now:0,ss:false,
   showTimetable:false,timetableDayType:getDayType(),
-diaException:false,
+  diaException:false,
   rv:[],rd:{},re:"",lu:0,
   mn:"",ms:"",mt:"",mi:"3",
   favorites:[],
+  favModal:null,
   theme:getTheme(),dayType:getDayType(),
   targetBus:null,
   lockedTripId:null,lockedAt:0,
@@ -77,6 +78,10 @@ function gn(){var n=new Date();return n.getHours()*60+n.getMinutes()+n.getSecond
 S.now=gn();
 function e(s){return String(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function pt(s){if(!s)return 0;var p=s.split(":");return+p[0]*60+(+p[1])+(p[2]?+p[2]/60:0);}
+// 便に「今日か翌日か」の目印(dayOffset)を含めた、正確な残り時間の基準を計算する
+function targetEffectiveMin(tb){return(tb.dayOffset||0)*1440+tb.arrivalMin;}
+var DAY_KEYS=['mon','tue','wed','thu','fri','sat','sun'];
+var DAY_LABELS={mon:'月',tue:'火',wed:'水',thu:'木',fri:'金',sat:'土',sun:'日'};
 function ft(m){
   var total=Math.round(m);
   var h=Math.floor(total/60)%24;
@@ -143,9 +148,7 @@ function computeDiaException(calendarTxt,calendarDatesTxt){
   var byDayType=getServiceIdsByDayType(calendarTxt);
   var todaySet=getTodayServiceIds(calendarTxt,calendarDatesTxt);
   var expected=(getDayType()==="holiday")?byDayType.holiday:byDayType.weekday;
-  console.log('ダイヤ判定デバッグ：平日パターン件数',byDayType.weekday.size,'／土日祝パターン件数',byDayType.holiday.size,'／今日の便件数',todaySet.size);
   if(byDayType.weekday.size===0&&byDayType.holiday.size===0){
-    console.log('ダイヤ判定デバッグ：曜日パターンのデータが無いため、特別ダイヤ判定はスキップします');
     return false;
   }
   return !isSameServiceSet(todaySet,expected);
@@ -286,7 +289,7 @@ function gp(times,now){for(var i=0;i<times.length;i++){if(now<times[i]){var p=i=
 
 function getNextBusInfo(){
   if(S.targetBus){
-    var mtt=S.targetBus.arrivalMin-S.now;
+    var mtt=targetEffectiveMin(S.targetBus)-S.now;
     return{time:S.targetBus.arrivalMin,timeStr:S.targetBus.timeStr,isToday:mtt>-60,mtt:mtt,headsign:S.targetBus.headsign,isTarget:true};
   }
   if(!S.route||!S.route.arrivalTimes||!S.route.arrivalTimes.length)return null;
@@ -305,22 +308,6 @@ function findTripIdByTimeAndHeadsign(timeStr,headsign){
   var entries=S.route.timetable[dt]||[];
   for(var i=0;i<entries.length;i++){
     if(entries[i].timeStr===timeStr&&entries[i].headsign===headsign)return entries[i].tripId;
-  }
-  return null;
-}
-
-// 「〇つ前」「〇分前」の設定から、実際の時刻表データをもとに
-// 「何時何分になったら通知を送るべきか」を正確に計算する（決め打ちの計算は一切使わない）
-function getNotifyAtMin(){
-  if(!S.targetBus)return null;
-  if(S.nm==="minutes"){
-    return S.targetBus.arrivalMin-S.nm2;
-  }
-  var tripId=findTripIdByTimeAndHeadsign(S.targetBus.timeStr,S.targetBus.headsign);
-  var idx=Math.max(0,S.ti-S.ns);
-  var stopObj=S.route&&S.route.stops?S.route.stops[idx]:null;
-  if(tripId&&stopObj&&S.route.stopTimes&&S.route.stopTimes[tripId]&&S.route.stopTimes[tripId][stopObj.id]){
-    return pt(S.route.stopTimes[tripId][stopObj.id]);
   }
   return null;
 }
@@ -348,7 +335,9 @@ function selectTargetBus(timeStr,headsign){
       }
     }
   }
-  S.targetBus={timeStr:timeStr,headsign:headsign,arrivalMin:arrivalMin};
+  // 選んだ時刻が「今の時刻より3時間以上前」なら、翌日の便として扱う（夜に翌朝の便を選ぶケースに対応）
+  var dayOffset=(arrivalMin<S.now-180)?1:0;
+  S.targetBus={timeStr:timeStr,headsign:headsign,arrivalMin:arrivalMin,dayOffset:dayOffset};
   S.nids=[];
   S.lastTargetPos=null;
   updatePushSettings();
@@ -379,13 +368,7 @@ function subscribePush(){
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
             subscription:sub.toJSON(),
-            settings:{
-              rid:S.rid,
-              targetBus:S.targetBus,
-              nm:S.nm,nm2:S.nm2,ns:S.ns,
-              notifyAtMin:getNotifyAtMin(),
-              gurl:S.gurl,companyName:S.companyName
-            }
+            rules:buildNotifyRules()
           })
         });
       }).then(function(){
@@ -399,7 +382,14 @@ function subscribePush(){
   });
 }
 
-// targetBusや通知設定が変わったときにWorkerへ送る
+// お気に入りの中から「通知オンかつ便が指定されているもの」だけを、裏側へ送る形に整える
+function buildNotifyRules(){
+  return S.favorites.filter(function(f){return f.notifyEnabled&&f.targetBus;}).map(function(f){
+    return{key:f.key,label:f.label,gurl:f.gurl,stopId:f.stopId,targetBus:f.targetBus,days:f.days,nm:f.nm,ns:f.ns,nm2:f.nm2};
+  });
+}
+
+// 通知ルールが変わったときにWorkerへ送る
 function updatePushSettings(){
   if(!S.pushEndpoint)return;
   fetch(W+'/?action=update_settings',{
@@ -407,30 +397,130 @@ function updatePushSettings(){
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
       endpoint:S.pushEndpoint,
-      settings:{
-        rid:S.rid,
-        targetBus:S.targetBus,
-        nm:S.nm,nm2:S.nm2,ns:S.ns,
-        notifyAtMin:getNotifyAtMin(),
-        gurl:S.gurl,companyName:S.companyName
-      }
+      rules:buildNotifyRules()
     })
   }).catch(function(ex){console.log('設定更新失敗:',ex);});
 }
 
-function scheduledArrivalAtBoardStop(tripId){
-  if(!S.route||!S.route.timetable)return null;
-  var dt=S.timetableDayType;
-  var entries=S.route.timetable[dt]||[];
-  for(var i=0;i<entries.length;i++){
-    if(entries[i].tripId===tripId)return pt(entries[i].timeStr);
+// ── お気に入り（通知ルール）関連 ──
+
+function favKey(){return(S.gurl||"")+"|"+(S.route&&S.route.stopId?S.route.stopId:"");}
+function isFav(){var k=favKey();return S.favorites.some(function(f){return f.key===k;});}
+
+function openFavModal(){
+  if(!S.route||!S.gurl)return;
+  var k=favKey();
+  var idx=S.favorites.findIndex(function(f){return f.key===k;});
+  var existing=idx>=0?S.favorites[idx]:null;
+  var holiday=getDayType()==="holiday";
+  var defaultDays=existing?existing.days:{mon:!holiday,tue:!holiday,wed:!holiday,thu:!holiday,fri:!holiday,sat:holiday,sun:holiday};
+  S.favModal={
+    editIndex:idx>=0?idx:null,
+    label:existing?(existing.label||""):"",
+    days:Object.assign({mon:false,tue:false,wed:false,thu:false,fri:false,sat:false,sun:false},defaultDays),
+    notify:existing?!!existing.notifyEnabled:!!S.targetBus,
+    hasTargetBus:!!S.targetBus,
+    targetBusInfo:S.targetBus?{time:ft(S.targetBus.arrivalMin),headsign:S.targetBus.headsign,dayOffset:S.targetBus.dayOffset}:null
+  };
+  render();
+}
+function openFavEditFromList(i){
+  var f=S.favorites[i];if(!f)return;
+  var holiday=getDayType()==="holiday";
+  var defaultDays=f.days||{mon:!holiday,tue:!holiday,wed:!holiday,thu:!holiday,fri:!holiday,sat:holiday,sun:holiday};
+  S.favModal={
+    listContext:true,index:i,
+    label:f.label||"",
+    days:Object.assign({mon:false,tue:false,wed:false,thu:false,fri:false,sat:false,sun:false},defaultDays),
+    notify:!!f.notifyEnabled,
+    hasTargetBus:!!f.targetBus,
+    targetBusInfo:f.targetBus?{time:ft(f.targetBus.arrivalMin),headsign:f.targetBus.headsign,dayOffset:f.targetBus.dayOffset}:null
+  };
+  render();
+}
+function closeFavModal(){S.favModal=null;render();}
+function toggleFavModalDay(d){if(!S.favModal)return;S.favModal.days[d]=!S.favModal.days[d];render();}
+function toggleFavModalNotify(){if(!S.favModal)return;S.favModal.notify=!S.favModal.notify;render();}
+function saveFavModal(){
+  var m=S.favModal;if(!m)return;
+  var inp=document.getElementById('fav-label-input');
+  var label=inp?inp.value.trim():"";
+  if(m.listContext){
+    var f=S.favorites[m.index];if(!f)return;
+    f.label=label;f.days=Object.assign({},m.days);
+    f.notifyEnabled=!!(m.notify&&f.targetBus);
+    svFav();S.favModal=null;updatePushSettings();render();return;
   }
-  return null;
+  var k=favKey();
+  var favObj={
+    key:k,
+    companyName:S.companyName||"",routeName:S.route.name||"",
+    stopName:S.route.stops[S.ti]?S.route.stops[S.ti].name:"",
+    gurl:S.gurl,rid:S.rid,hasRT:S.hasRT,
+    stopId:S.route.stopId||(S.route.stops[S.ti]?S.route.stops[S.ti].id:""),
+    label:label,
+    notifyEnabled:!!(m.notify&&S.targetBus),
+    targetBus:S.targetBus?Object.assign({},S.targetBus):null,
+    days:Object.assign({},m.days),
+    nm:S.nm,ns:S.ns,nm2:S.nm2
+  };
+  if(m.editIndex!=null){S.favorites[m.editIndex]=favObj;}else{S.favorites.push(favObj);}
+  svFav();S.favModal=null;updatePushSettings();render();
+}
+function removeFavFromModal(){
+  var m=S.favModal;if(!m)return;
+  var idx=m.listContext?m.index:m.editIndex;
+  if(idx==null)return;
+  S.favorites.splice(idx,1);
+  svFav();S.favModal=null;updatePushSettings();render();
+}
+function toggleFavNotify(i){
+  var f=S.favorites[i];if(!f||!f.targetBus)return;
+  f.notifyEnabled=!f.notifyEnabled;
+  svFav();updatePushSettings();render();
+}
+function openFav(i){
+  var f=S.favorites[i];if(!f)return;
+  S.gurl=f.gurl;S.rid=f.rid;S.hasRT=f.hasRT;S.companyName=f.companyName;
+  S.scr="loading";S.lm="時刻表を読み込み中…";render();
+  selectStop(f.stopId);
+}
+
+function renderFavModal(T){
+  var m=S.favModal,hasBus=m.hasTargetBus;
+  var h='<div onclick="closeFavModal()" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:399"></div>'
+  +'<div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:400;background:'+T.card+';border:1px solid '+T.border+';border-radius:16px;padding:20px;max-width:340px;width:90vw;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.4)">'
+  +'<div style="font-size:16px;font-weight:700;color:'+T.text+';margin-bottom:14px">⭐ お気に入り登録</div>';
+  if(!hasBus){
+    h+='<div style="font-size:12px;color:'+T.sub+';background:'+T.bg+';border-radius:8px;padding:10px;margin-bottom:12px">便が指定されていないため、この登録は「目印」としてのみ保存されます。通知を受け取りたい場合は、時刻表から便を選んでから登録してください。</div>';
+  }else{
+    h+='<div style="font-size:12px;color:'+T.acc+';margin-bottom:12px">🎯 '+e(m.targetBusInfo.time)+' '+e(m.targetBusInfo.headsign||"")+(m.targetBusInfo.dayOffset?'（翌日）':'')+'</div>';
+  }
+  h+='<div style="font-size:12px;color:'+T.sub+';margin-bottom:4px">呼び名（任意）</div>'
+  +'<input id="fav-label-input" type="text" value="'+e(m.label)+'" placeholder="例：登校、帰宅" style="width:100%;background:'+T.bg+';border:1px solid '+T.border+';border-radius:8px;color:'+T.text+';padding:9px 12px;font-size:14px;font-family:inherit;outline:none;margin-bottom:14px">';
+  if(hasBus){
+    h+='<div style="font-size:12px;color:'+T.sub+';margin-bottom:6px">通知する曜日</div><div style="display:flex;gap:4px;margin-bottom:14px">';
+    DAY_KEYS.forEach(function(d){
+      var on=m.days[d];
+      h+='<button onclick="toggleFavModalDay(\''+d+'\')" style="flex:1;padding:8px 0;border-radius:8px;border:1px solid '+(on?T.acc:T.border)+';background:'+(on?T.acc:"none")+';color:'+(on?"white":T.sub)+';font-size:12px;cursor:pointer;font-family:inherit">'+DAY_LABELS[d]+'</button>';
+    });
+    h+='</div>'
+    +'<div onclick="toggleFavModalNotify()" style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:'+T.bg+';border-radius:8px;margin-bottom:16px;cursor:pointer">'
+    +'<span style="font-size:13px;color:'+T.text+'">🔔 この便を通知する</span>'
+    +'<span style="width:40px;height:22px;border-radius:11px;background:'+(m.notify?T.acc:T.border)+';position:relative;display:inline-block;flex-shrink:0">'
+    +'<span style="position:absolute;top:2px;left:'+(m.notify?"20px":"2px")+';width:18px;height:18px;border-radius:50%;background:white;transition:left 0.2s"></span></span></div>';
+  }
+  h+='<button onclick="saveFavModal()" class="btn" style="width:100%;padding:12px;background:linear-gradient(135deg,#059669,#0891b2);color:white;font-size:14px;margin-bottom:8px">✅ 保存する</button>';
+  if(m.editIndex!=null||m.listContext){
+    h+='<button onclick="removeFavFromModal()" class="btn" style="width:100%;padding:11px;background:none;border:1px solid #ef4444;color:#ef4444;font-size:13px;margin-bottom:8px">🗑 このお気に入りを削除</button>';
+  }
+  h+='<button onclick="closeFavModal()" class="btn" style="width:100%;padding:10px;background:none;color:'+T.sub+';font-size:13px">キャンセル</button></div>';
+  return h;
 }
 
 function gb(){
   if(!S.route)return[];
-  var iv=S.route.iv||3.5,now=S.now;
+  var iv=3.5,now=S.now;
   var validVehicles=S.rv.filter(function(v){
     if(!v.tripId)return false;
     var last=S.lastGpsTime[v.tripId]||0;
@@ -463,8 +553,17 @@ function gb(){
     if(best){S.lockedTripId=best;S.lockedAt=nowMs;}
     return best;
   }
+  function scheduledArrivalAtBoardStop(tripId){
+    if(!S.route||!S.route.timetable)return null;
+    var dt=S.timetableDayType;
+    var entries=S.route.timetable[dt]||[];
+    for(var i=0;i<entries.length;i++){
+      if(entries[i].tripId===tripId)return pt(entries[i].timeStr);
+    }
+    return null;
+  }
   if(S.targetBus){
-    var targetTime=S.targetBus.arrivalMin;
+    var targetTime=targetEffectiveMin(S.targetBus);
     var mtt=targetTime-now;
     var targetTripId=findTripIdByTimeAndHeadsign(S.targetBus.timeStr,S.targetBus.headsign);
     if(S.rid&&validVehicles.length>0&&targetTripId){
@@ -647,7 +746,7 @@ function drt(fromButton){
 
 setInterval(function(){
   S.now=gn();S.theme=getTheme();S.dayType=getDayType();
-  if(S.targetBus&&S.targetBus.arrivalMin<S.now-5){S.targetBus=null;S.nids=[];S.lastTargetPos=null;restoreDefaultStops();}
+  if(S.targetBus&&targetEffectiveMin(S.targetBus)<S.now-5){S.targetBus=null;S.nids=[];S.lastTargetPos=null;restoreDefaultStops();}
   S.buses=gb();
   cn();
   if(S.scr==="monitor"){
@@ -679,7 +778,7 @@ function playAlarm(){
   }catch(ex){}
 }
 
-// 通知チェック（targetBusが選ばれていないときは何もしない）
+// 通知チェック（targetBusが選ばれていないときは何もしない、画面を開いているとき専用）
 function cn(){
   if(S.scr!=="monitor"||!S.route||!S.targetBus)return;
   var buses=S.buses||gb();
@@ -814,24 +913,6 @@ function goChangeStop(){
   }).catch(function(ex){S.le=ex.message;S.scr="welcome";render();});
 }
 
-function favKey(){return(S.gurl||"")+"|"+(S.route&&S.route.stopId?S.route.stopId:"");}
-function isFav(){var k=favKey();return S.favorites.some(function(f){return f.key===k;});}
-function toggleFav(){
-  if(!S.route||!S.gurl)return;
-  var k=favKey();
-  var idx=S.favorites.findIndex(function(f){return f.key===k;});
-  if(idx>=0){S.favorites.splice(idx,1);}
-  else{S.favorites.push({key:k,companyName:S.companyName||"",routeName:S.route.name||"",stopName:S.route.stops[S.ti]?S.route.stops[S.ti].name:"",gurl:S.gurl,rid:S.rid,hasRT:S.hasRT,stopId:S.route.stopId||(S.route.stops[S.ti]?S.route.stops[S.ti].id:"")});}
-  svFav();render();
-}
-function openFav(i){
-  var f=S.favorites[i];if(!f)return;
-  S.gurl=f.gurl;S.rid=f.rid;S.hasRT=f.hasRT;S.companyName=f.companyName;
-  S.scr="loading";S.lm="時刻表を読み込み中…";render();
-  selectStop(f.stopId);
-}
-function removeFav(i,ev){if(ev)ev.stopPropagation();S.favorites.splice(i,1);svFav();render();}
-
 function renderTimetable(T){
   if(!S.route||!S.route.timetable)return'<div style="color:'+T.sub+';font-size:13px;text-align:center;padding:16px">時刻表データなし</div>';
   var dt=S.timetableDayType;
@@ -851,7 +932,7 @@ function renderTimetable(T){
   +'</div>';
   if(S.targetBus){
     html+='<div style="background:'+T.acc+'22;border:1px solid '+T.acc+'66;border-radius:10px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:'+T.acc+';display:flex;align-items:center;justify-content:space-between">'
-    +'<span>🎯 '+e(ft(S.targetBus.arrivalMin))+' '+e(S.targetBus.headsign||"")+'を通知対象中</span>'
+    +'<span>🎯 '+e(ft(S.targetBus.arrivalMin))+' '+e(S.targetBus.headsign||"")+(S.targetBus.dayOffset?'（翌日）':'')+'を通知対象中</span>'
     +'<button onclick="S.targetBus=null;S.nids=[];S.lastTargetPos=null;restoreDefaultStops();updatePushSettings();saveState();render()" style="background:none;border:none;color:'+T.sub+';font-size:12px;cursor:pointer">解除</button>'
     +'</div>';
   }
@@ -887,9 +968,7 @@ function renderTimetable(T){
 
 function renderDiaBadge(T){
   var label=S.timetableDayType==="holiday"?"🗓️ 土日祝ダイヤ":"🗓️ 平日ダイヤ";
-  var html='<div style="font-size:11px;color:'+T.sub+';margin-bottom:8px;text-align:center">'+label;
-  
-  html+='</div>';
+  var html='<div style="font-size:11px;color:'+T.sub+';margin-bottom:8px;text-align:center">'+label+'</div>';
   return html;
 }
 function render(){
@@ -931,13 +1010,18 @@ function render(){
     }else{
       hf+='<div style="background:'+T.card+';border-radius:14px;border:1px solid '+T.border+';overflow:hidden">';
       S.favorites.forEach(function(f,i){
-        hf+='<div onclick="openFav('+i+')" style="padding:14px;border-bottom:'+(i<S.favorites.length-1?"1px solid "+T.border:"none")+';cursor:pointer;display:flex;align-items:center;gap:10px">'
-        +'<div style="font-size:20px">🚌</div>'
-        +'<div style="flex:1">'
+        var displayName=f.label?f.label:f.stopName;
+        var busInfo=f.targetBus?('🎯 '+ft(f.targetBus.arrivalMin)+(f.targetBus.headsign?' '+f.targetBus.headsign:'')+(f.targetBus.dayOffset?'（翌日）':'')):'便未指定';
+        var daysStr=(f.targetBus&&f.days)?DAY_KEYS.filter(function(d){return f.days[d];}).map(function(d){return DAY_LABELS[d];}).join(''):'';
+        hf+='<div style="padding:14px;border-bottom:'+(i<S.favorites.length-1?"1px solid "+T.border:"none")+';display:flex;align-items:center;gap:10px">'
+        +'<div onclick="openFav('+i+')" style="cursor:pointer;font-size:20px">🚌</div>'
+        +'<div onclick="openFav('+i+')" style="flex:1;cursor:pointer">'
         +'<div style="font-size:13px;color:'+T.sub+'">'+e(f.companyName)+' ・ '+e(f.routeName)+'</div>'
-        +'<div style="font-size:15px;font-weight:600;color:'+T.text+'">'+e(f.stopName)+'</div>'
+        +'<div style="font-size:15px;font-weight:600;color:'+T.text+'">'+e(displayName)+'</div>'
+        +'<div style="font-size:11px;color:'+T.acc+';margin-top:2px">'+e(busInfo)+(daysStr?'　'+daysStr:'')+'</div>'
         +'</div>'
-        +'<button onclick="removeFav('+i+',event)" style="background:none;border:none;color:'+T.sub+';font-size:18px;cursor:pointer;padding:4px 8px">✕</button>'
+        +(f.targetBus?'<div onclick="toggleFavNotify('+i+');event.stopPropagation()" style="width:40px;height:22px;border-radius:11px;background:'+(f.notifyEnabled?T.acc:T.border)+';position:relative;cursor:pointer;flex-shrink:0"><span style="position:absolute;top:2px;left:'+(f.notifyEnabled?"20px":"2px")+';width:18px;height:18px;border-radius:50%;background:white;transition:left 0.2s"></span></div>':'')
+        +'<button onclick="openFavEditFromList('+i+');event.stopPropagation()" style="background:none;border:none;color:'+T.sub+';font-size:16px;cursor:pointer;padding:4px 6px">✎</button>'
         +'</div>';
       });
       hf+='</div>';
@@ -994,7 +1078,7 @@ function render(){
             var idx=S.favorites.indexOf(f);
             favHtml+='<div onclick="openFav('+idx+')" style="padding:12px 14px;border-top:1px solid '+T.border+';cursor:pointer;display:flex;align-items:center;gap:10px">'
             +'<div style="font-size:18px">🚏</div>'
-            +'<div style="flex:1"><div style="font-size:14px;font-weight:600;color:'+T.text+'">'+e(f.stopName)+'</div>'
+            +'<div style="flex:1"><div style="font-size:14px;font-weight:600;color:'+T.text+'">'+e(f.label||f.stopName)+'</div>'
             +'<div style="font-size:11px;color:'+T.sub+';margin-top:2px">'+e(f.routeName)+'</div></div>'
             +'<div style="color:'+T.sub+'">›</div></div>';
           });
@@ -1034,7 +1118,7 @@ function render(){
   var ri="";
   if(S.rid){var sa=S.lu?Math.round((Date.now()-S.lu)/1000):null;ri=S.re?'<span style="color:#ef4444;font-size:10px">● RTエラー</span>':sa!==null?'<span style="color:#22c55e;font-size:10px;animation:pulse 2s infinite">● '+(sa<60?sa+"秒前":Math.round(sa/60)+"分前")+'</span>':'<span style="color:'+T.sub+';font-size:10px">● 取得中</span>';}
 
-  // ── ヘッダー（固定表示エリア：会社名・時刻・ボタン・通知設定・カウントダウンをまとめて画面上部に固定）──
+  // ── ヘッダー（固定表示エリア：会社名・時刻・ボタン・通知設定ボタン・カウントダウンをまとめて画面上部に固定）──
   html+='<div style="background:'+T.hdr+';padding:14px 14px 0;margin:-14px -14px 0;position:sticky;top:0;z-index:100">'
   +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
   +'<span style="font-size:22px;animation:float 2.5s ease-in-out infinite">🚌</span>'
@@ -1043,7 +1127,7 @@ function render(){
   +'<span style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,0.85)">'+e(S.route.name)+'</span>'
   +(!S.rid?'<span style="color:rgba(255,255,255,0.7);font-size:10px">○ 時刻表ベース</span>':ri)
   +'</div></div>'
-  +'<button onclick="toggleFav()" style="background:none;border:none;font-size:24px;cursor:pointer;padding:0 4px;line-height:1;color:#fbbf24;text-shadow:0 0 3px rgba(0,0,0,0.5)">'+(isFav()?"⭐":"☆")+'</button>'
+  +'<button onclick="openFavModal()" style="background:none;border:none;font-size:24px;cursor:pointer;padding:0 4px;line-height:1;color:#fbbf24;text-shadow:0 0 3px rgba(0,0,0,0.5)">'+(isFav()?"⭐":"☆")+'</button>'
   +'<div style="font-size:22px;font-weight:800;color:white">'+ft(S.now)+'</div>'
   +'</div>'
   +'<div style="display:flex;gap:6px;padding-bottom:12px">'
@@ -1052,14 +1136,12 @@ function render(){
   +'<button onclick="S.showTimetable=!S.showTimetable;if(S.showTimetable)S.ttScroll=true;render()" style="flex:1;padding:7px;background:'+(S.showTimetable?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.15)")+';border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;cursor:pointer;font-family:inherit">📋 時刻表</button>'
   +'</div>';
 
-  // ── 通知設定ボタン（固定エリアに移動）──
   var notifPerm=('Notification' in window)?Notification.permission:'denied';
   html+='<div style="padding-bottom:10px">'
   +'<button onclick="S.ss=!S.ss;if(S.ss)S.ssScroll=true;render()" class="btn" style="width:100%;padding:11px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:12px;color:white;font-size:13px;margin-bottom:10px">'
   +(S.targetBus?'⚙️ 通知設定（🎯 '+ft(S.targetBus.arrivalMin)+'）':'⚙️ 通知設定')
   +' '+(S.ss?"▲":"▼")+'</button>';
 
-  // ── カウントダウン（固定エリアに移動）──
   html+=renderDiaBadge(T);
   if(nx){
     var dl=nx.dl>0.5?'<div style="font-size:11px;color:#f97316;margin-top:3px">⚠️ '+Math.round(nx.dl)+'分遅れ</div>':nx.dl<-0.5?'<div style="font-size:11px;color:#22c55e;margin-top:3px">✓ '+Math.round(-nx.dl)+'分早め</div>':"";
@@ -1067,7 +1149,7 @@ function render(){
       ?'<span style="color:#22c55e;font-size:10px">● GPS取得中</span>'
       :'<span style="color:#ef4444;font-size:10px">● 位置情報未取得・時刻表ベース</span>';
     var targetLabel=S.targetBus
-      ?'<div style="font-size:11px;color:'+T.acc+';margin-top:3px">🎯 '+e(ft(S.targetBus.arrivalMin))+' '+e(S.targetBus.headsign||"")+'<br>'+gpsLabel+'</div>'
+      ?'<div style="font-size:11px;color:'+T.acc+';margin-top:3px">🎯 '+e(ft(S.targetBus.arrivalMin))+' '+e(S.targetBus.headsign||"")+(S.targetBus.dayOffset?'（翌日）':'')+'<br>'+gpsLabel+'</div>'
       :'<div style="font-size:12px;color:'+T.sub+';margin-top:3px">'+gpsLabel+' 到着予定</div>';
     var updateBtn="";
     if(S.rid){
@@ -1244,6 +1326,7 @@ function render(){
   html+='</div></div>';
   }
 
+  if(S.favModal)html+=renderFavModal(T);
   app.innerHTML=html;
 
   // 時刻表を開いた直後だけ、今の時間帯まで自動でスクロールする
