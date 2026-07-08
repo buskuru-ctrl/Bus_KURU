@@ -1132,12 +1132,14 @@ function render(){
   +'<div style="font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px;display:flex;gap:6px;align-items:center">'
   +'<span style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:rgba(255,255,255,0.85)">'+e(S.route.name)+'</span>'
   +(!S.rid?'<span style="color:rgba(255,255,255,0.7);font-size:10px">○ 時刻表ベース</span>':ri)
-  +'</div></div>'
+  +'</div>'
+  +'<div style="font-size:11px;color:rgba(255,255,255,0.85);margin-top:2px">🚏 '+(S.route.stops[S.ti]?e(S.route.stops[S.ti].name):"")+'</div>'
+  +'</div>'
   +'<button onclick="openFavModal()" style="background:none;border:none;font-size:24px;cursor:pointer;padding:0 4px;line-height:1;color:#fbbf24;text-shadow:0 0 3px rgba(0,0,0,0.5)">'+(isFav()?"⭐":"☆")+'</button>'
   +'<div style="font-size:22px;font-weight:800;color:white">'+ft(S.now)+'</div>'
   +'</div>'
   +'<div style="display:flex;gap:6px;padding-bottom:12px">'
-  +'<button onclick="goChangeCompany()" style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;cursor:pointer;font-family:inherit">🔄 バス会社を変更</button>'
+  +'<button onclick="goChangeCompany()" style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;cursor:pointer;font-family:inherit">🏠 トップに戻る</button>'
   +'<button onclick="goChangeStop()" style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;cursor:pointer;font-family:inherit">🚏 バス停を変更</button>'
   +'<button onclick="S.showTimetable=!S.showTimetable;if(S.showTimetable)S.ttScroll=true;render()" style="flex:1;padding:7px;background:'+(S.showTimetable?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.15)")+';border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;cursor:pointer;font-family:inherit">📋 時刻表</button>'
   +'</div>';
@@ -1227,7 +1229,7 @@ function render(){
     if(!S.targetBus){
       html+='<div style="background:'+T.card+';border-radius:14px;border:1px solid '+T.border+';padding:14px;margin-bottom:10px">'
       +'<div style="font-size:12px;color:'+T.acc+';font-weight:700;margin-bottom:8px">🔔 通知を受け取るには</div>'
-      +'<div style="font-size:12px;color:'+T.sub+';line-height:2.2">'
+      +'<div style="font-size:12px;color:'+T.text+';line-height:2.2">'
       +'<span style="color:'+T.acc+';font-weight:700">① </span>「📋 時刻表」ボタンを開く<br>'
       +'<span style="color:'+T.acc+';font-weight:700">② </span>乗りたい便をタップして選ぶ<br>'
       +'<span style="color:'+T.acc+';font-weight:700">③ </span>下の「スマホ通知をオンにする」をタップ'
@@ -1265,7 +1267,7 @@ function render(){
     if(notifPerm==='granted'){
       html+='<div style="width:100%;padding:11px;background:#052e16;border:1px solid #16a34a;border-radius:12px;color:#22c55e;font-size:13px;text-align:center;margin-bottom:8px">'
       +'✅ スマホ通知オン中<br>'
-      +'<span style="font-size:11px;color:'+T.sub+'">オフにするにはブラウザの設定から変更できます</span>'
+      +'<span style="font-size:11px;color:#86efac">オフにするにはブラウザの設定から変更できます</span>'
       +'</div>';
     }else if(notifPerm==='denied'){
       html+='<div style="width:100%;padding:11px;background:#431407;border:1px solid #ea580c;border-radius:12px;color:#f97316;font-size:13px;text-align:center;margin-bottom:8px">'
@@ -1301,7 +1303,7 @@ function render(){
   if(!S.targetBus){
     html+='<div style="background:'+T.card+';border-radius:14px;border:1px solid '+T.border+';padding:14px;margin-bottom:14px">'
     +'<div style="font-size:13px;font-weight:700;color:'+T.text+';margin-bottom:8px">🔔 通知の受け取り方</div>'
-    +'<div style="font-size:12px;color:'+T.sub+';line-height:2.2">'
+    +'<div style="font-size:12px;color:'+T.text+';line-height:2.2">'
     +'<span style="color:'+T.acc+';font-weight:700">① </span>「📋 時刻表」ボタンを開く<br>'
     +'<span style="color:'+T.acc+';font-weight:700">② </span>乗りたい便をタップして選ぶ<br>'
     +'<span style="color:'+T.acc+';font-weight:700">③ </span>「⚙️ 通知設定」から通知をオンにする'
