@@ -1213,9 +1213,9 @@ function render(){
     }else{
       html+='<div style="background:'+T.card+';border-radius:20px;padding:22px;border:1px solid '+T.border+';margin-bottom:0;text-align:center">'
       +'<div style="font-size:28px;margin-bottom:8px">'+T.icon+'</div>'
-      +'<div style="font-size:14px;color:'+T.sub+'">現在、運行時間外です</div>'
+      +'<div style="font-size:14px;color:'+T.text+'">現在、運行時間外です</div>'
       +nextStr
-      +(S.route.timetable?'<div style="font-size:11px;color:'+T.sub+';margin-top:8px">「📋 時刻表」で詳細を確認できます</div>':"")
+      +(S.route.timetable?'<div style="font-size:11px;color:'+T.text+';margin-top:8px">「📋 時刻表」で詳細を確認できます</div>':"")
       +'</div>';
     }
   }
