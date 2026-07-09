@@ -51,6 +51,12 @@ function getDayType(){
   var d=new Date().getDay();
   return(d===0||d===6)?"holiday":"weekday";
 }
+function getDayTypeOffset(days){
+  var d=new Date();
+  d.setDate(d.getDate()+days);
+  var dow=d.getDay();
+  return(dow===0||dow===6)?"holiday":"weekday";
+}
 
 var S={
   scr:"welcome",route:null,ti:0,
@@ -337,6 +343,15 @@ function selectTargetBus(timeStr,headsign){
   }
   // 選んだ時刻が「今の時刻より3時間以上前」なら、翌日の便として扱う（夜に翌朝の便を選ぶケースに対応）
   var dayOffset=(arrivalMin<S.now-180)?1:0;
+  if(dayOffset===1){
+    var tomorrowType=getDayTypeOffset(1);
+    if(tomorrowType!==S.timetableDayType){
+      var curLabel=S.timetableDayType==="holiday"?"土日祝ダイヤ":"平日ダイヤ";
+      var tmrLabel=tomorrowType==="holiday"?"土日祝ダイヤ":"平日ダイヤ";
+      var ok=confirm("今表示しているのは「"+curLabel+"」ですが、明日は「"+tmrLabel+"」です。\n時刻が異なる可能性があります。このまま選んでよろしいですか？");
+      if(!ok)return;
+    }
+  }
   S.targetBus={timeStr:timeStr,headsign:headsign,arrivalMin:arrivalMin,dayOffset:dayOffset};
   S.nids=[];
   S.lastTargetPos=null;
@@ -1359,7 +1374,14 @@ function render(){
   if(S.showTimetable&&S.ttScroll){
     S.ttScroll=false;
     var hourEl=document.getElementById('tt-hour-'+Math.floor(S.now/60));
-    if(hourEl)hourEl.scrollIntoView({block:'center'});
+    var hdrEl2=document.getElementById('sticky-header');
+    if(hourEl){
+      hourEl.scrollIntoView({block:'start'});
+      if(hdrEl2){
+        var hdrH2=hdrEl2.getBoundingClientRect().height;
+        window.scrollBy(0,-(hdrH2+10));
+      }
+    }
   }
   // 通知設定を開いた直後だけ、通知タイミングのところまで自動でスクロールする
   if(S.ss&&S.ssScroll){
