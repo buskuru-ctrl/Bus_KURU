@@ -482,6 +482,7 @@ function toggleFavNotify(i){
 function openFav(i){
   var f=S.favorites[i];if(!f)return;
   S.gurl=f.gurl;S.rid=f.rid;S.hasRT=f.hasRT;S.companyName=f.companyName;
+  S.pendingTargetBus=f.targetBus?Object.assign({},f.targetBus):null;
   S.scr="loading";S.lm="時刻表を読み込み中…";render();
   selectStop(f.stopId);
 }
@@ -748,7 +749,11 @@ function drt(fromButton){
 
 setInterval(function(){
   S.now=gn();S.theme=getTheme();S.dayType=getDayType();
-  if(S.targetBus&&targetEffectiveMin(S.targetBus)<S.now-5){S.targetBus=null;S.nids=[];S.lastTargetPos=null;restoreDefaultStops();}
+  if(S.targetBus){
+    var clearCheckTid=findTripIdByTimeAndHeadsign(S.targetBus.timeStr,S.targetBus.headsign);
+    var clearCheckDelay=(clearCheckTid&&S.rd[clearCheckTid])?S.rd[clearCheckTid]/60:0;
+    if(targetEffectiveMin(S.targetBus)+clearCheckDelay<S.now-5){S.targetBus=null;S.nids=[];S.lastTargetPos=null;restoreDefaultStops();}
+  }
   S.buses=gb();
   cn();
   if(S.favModal)return;
@@ -862,6 +867,19 @@ function selectStop(sid){
     var nr={name:res.name,stops:ns2,defaultStops:ns2.slice(),schedules:res.schedules,arrivalTimes:res.arrivalTimes,tm:res.tm,stopId:sid,timetable:timetable,routeTripIds:res.routeTripIds,stopTimes:res.stopTimes};
     S.route=nr;S.ti=ni;S.nids=[];S.targetBus=null;S.scr="monitor";
     S.lastTargetPos=null;S.lastBestPos=null;S.lockedTripId=null;S.lockedAt=0;
+    if(S.pendingTargetBus){
+      S.targetBus=S.pendingTargetBus;
+      S.pendingTargetBus=null;
+      var pendingTid=findTripIdByTimeAndHeadsign(S.targetBus.timeStr,S.targetBus.headsign);
+      if(pendingTid&&S.cachedFiles){
+        var pendingStops=buildStopsForTrip(S.cachedFiles,pendingTid);
+        if(pendingStops.length){
+          var pendingIdx=-1;
+          for(var pj=0;pj<pendingStops.length;pj++){if(pendingStops[pj].id===S.route.stopId){pendingIdx=pj;break;}}
+          if(pendingIdx>=0){S.route.stops=pendingStops;S.ti=pendingIdx;}
+        }
+      }
+    }
     saveState();saveScreen('monitor');
     if(S.rid)srt();render();
   }).catch(function(ex){S.le=ex.message;S.scr="stop_select";render();});
@@ -971,7 +989,7 @@ function renderTimetable(T){
 
 function renderDiaBadge(T){
   var label=S.timetableDayType==="holiday"?"🗓️ 土日祝ダイヤ":"🗓️ 平日ダイヤ";
-  var html='<div style="font-size:11px;color:'+T.sub+';margin-bottom:8px;text-align:center">'+label+'</div>';
+  var html='<div style="font-size:11px;color:rgba(255,255,255,0.85);margin-bottom:8px;text-align:center">'+label+'</div>';
   return html;
 }
 function render(){
@@ -1125,7 +1143,7 @@ function render(){
   if(S.rid){var sa=S.lu?Math.round((Date.now()-S.lu)/1000):null;ri=S.re?'<span style="color:#ef4444;font-size:10px">● RTエラー</span>':sa!==null?'<span style="color:#22c55e;font-size:10px;animation:pulse 2s infinite">● '+(sa<60?sa+"秒前":Math.round(sa/60)+"分前")+'</span>':'<span style="color:'+T.sub+';font-size:10px">● 取得中</span>';}
 
   // ── ヘッダー（固定表示エリア：会社名・時刻・ボタン・通知設定ボタン・カウントダウンをまとめて画面上部に固定）──
-  html+='<div style="background:'+T.hdr+';padding:14px 14px 0;margin:-14px -14px 0;position:sticky;top:0;z-index:100">'
+  html+='<div id="sticky-header" style="background:'+T.hdr+';padding:14px 14px 0;margin:-14px -14px 0;position:sticky;top:0;z-index:100">'
   +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">'
   +'<span style="font-size:22px;animation:float 2.5s ease-in-out infinite">🚌</span>'
   +'<div style="flex:1"><div style="font-size:15px;font-weight:700;color:white">'+(S.companyName?e(S.companyName):"バスクル")+'</div>'
@@ -1207,8 +1225,8 @@ function render(){
     }
     if(isInService){
       html+='<div style="background:'+T.card+';border-radius:20px;padding:22px;border:1px solid '+T.border+';margin-bottom:0;text-align:center">'
-      +(nextInfo?nextStr:'<div style="font-size:14px;color:'+T.sub+'">次の便を確認中…</div>')
-      +(S.route.timetable?'<div style="font-size:11px;color:'+T.sub+';margin-top:8px">「📋 時刻表」で詳細を確認できます</div>':"")
+      +(nextInfo?nextStr:'<div style="font-size:14px;color:'+T.text+'">次の便を確認中…</div>')
+      +(S.route.timetable?'<div style="font-size:11px;color:'+T.text+';margin-top:8px">「📋 時刻表」で詳細を確認できます</div>':"")
       +'</div>';
     }else{
       html+='<div style="background:'+T.card+';border-radius:20px;padding:22px;border:1px solid '+T.border+';margin-bottom:0;text-align:center">'
@@ -1347,7 +1365,14 @@ function render(){
   if(S.ss&&S.ssScroll){
     S.ssScroll=false;
     var notifEl=document.getElementById('notif-timing-area');
-    if(notifEl)notifEl.scrollIntoView({block:'start'});
+    var hdrEl=document.getElementById('sticky-header');
+    if(notifEl){
+      notifEl.scrollIntoView({block:'start'});
+      if(hdrEl){
+        var hdrH=hdrEl.getBoundingClientRect().height;
+        window.scrollBy(0,-(hdrH+10));
+      }
+    }
   }
 }
 
