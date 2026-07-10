@@ -397,11 +397,27 @@ function subscribePush(){
   });
 }
 
-// お気に入りの中から「通知オンかつ便が指定されているもの」だけを、裏側へ送る形に整える
+// お気に入りの中から「通知オンかつ便が指定されているもの」に加え、今その場で選んでいる便（お気に入り未登録でも）を裏側へ送る形に整える
 function buildNotifyRules(){
-  return S.favorites.filter(function(f){return f.notifyEnabled&&f.targetBus;}).map(function(f){
+  var rules=S.favorites.filter(function(f){return f.notifyEnabled&&f.targetBus;}).map(function(f){
     return{key:f.key,label:f.label,gurl:f.gurl,stopId:f.stopId,targetBus:f.targetBus,days:f.days,nm:f.nm,ns:f.ns,nm2:f.nm2};
   });
+  // 今選んでいる便（🎯）は、お気に入り登録の有無に関わらず、その便の日付分だけ通知対象にする
+  if(S.targetBus&&S.route&&S.gurl){
+    var curKey=favKey()+'|current';
+    var alreadySame=S.favorites.some(function(f){
+      return f.notifyEnabled&&f.targetBus&&f.key===favKey()&&f.targetBus.timeStr===S.targetBus.timeStr&&f.targetBus.headsign===S.targetBus.headsign;
+    });
+    if(!alreadySame){
+      var d=new Date();d.setDate(d.getDate()+(S.targetBus.dayOffset||0));
+      var dowKeys=['sun','mon','tue','wed','thu','fri','sat'];
+      var curDow=dowKeys[d.getDay()];
+      var curDays={mon:false,tue:false,wed:false,thu:false,fri:false,sat:false,sun:false};
+      curDays[curDow]=true;
+      rules.push({key:curKey,label:'',gurl:S.gurl,stopId:S.route.stopId,targetBus:S.targetBus,days:curDays,nm:S.nm,ns:S.ns,nm2:S.nm2});
+    }
+  }
+  return rules;
 }
 
 // 通知ルールが変わったときにWorkerへ送る
