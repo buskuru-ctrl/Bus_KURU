@@ -184,7 +184,7 @@ function calcDist(lat1,lon1,lat2,lon2){
   return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
-function gpsToRoutePos(lat,lon,stops){
+function gpsToRoutePos(lat,lon,stops,prevIdx){
   if(!stops||!stops.length)return -1;
   var bestIdx=-1,bestDist=99999;
   for(var i=0;i<stops.length;i++){
@@ -194,6 +194,13 @@ function gpsToRoutePos(lat,lon,stops){
   }
   if(bestIdx<0)return -1;
   if(bestDist>1000)return -1;
+  // 今の停留所から、はっきり(100m以上)近づいていなければ、GPSのブレとみなして今の停留所のままにする
+  if(prevIdx!=null&&prevIdx>=0&&prevIdx<stops.length&&stops[prevIdx].lat&&stops[prevIdx].lon){
+    var prevDist=calcDist(lat,lon,stops[prevIdx].lat,stops[prevIdx].lon);
+    if(bestIdx!==prevIdx&&(prevDist-bestDist)<100){
+      return prevIdx;
+    }
+  }
   return bestIdx;
 }
 
@@ -608,7 +615,7 @@ function gb(){
         var v=matched[0];
         var stopsHaveCoords=S.route.stops&&S.route.stops.some(function(s){return s.lat&&s.lon;});
         if(stopsHaveCoords&&v.lat&&v.lon){
-          var pos=gpsToRoutePos(v.lat,v.lon,S.route.stops);
+          var pos=gpsToRoutePos(v.lat,v.lon,S.route.stops,S.lastTargetPos);
           if(pos>=0){
             if(S.lastTargetPos!=null&&pos<S.lastTargetPos-0.5){pos=S.lastTargetPos;}
             S.lastTargetPos=pos;
@@ -649,7 +656,7 @@ function gb(){
           return pt(targetTime)+dl2-now;
         }
         if(stopsHaveCoords&&v2.lat&&v2.lon){
-          var pos2=gpsToRoutePos(v2.lat,v2.lon,S.route.stops);
+          var pos2=gpsToRoutePos(v2.lat,v2.lon,S.route.stops,S.lastBestPos);
           if(pos2>=0){
             if(S.lastBestPos!=null&&pos2<S.lastBestPos-0.5){pos2=S.lastBestPos;}
             S.lastBestPos=pos2;
