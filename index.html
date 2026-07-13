@@ -1243,8 +1243,8 @@ function render(){
     +(!S.targetBus?'<span style="font-size:11px;color:'+T.sub+';font-weight:400;margin-left:8px">便を選んでから設定できます</span>':'')
     +'</div>'
     +'<div style="display:flex;background:'+T.bg+';border-radius:10px;padding:3px;margin-bottom:10px">'
-    +'<button onclick="S.nm='stops';S.notifDirty=true;render()" style="flex:1;padding:7px;border:none;border-radius:8px;background:'+(S.nm==="stops"?T.acc:"none")+';color:'+(S.nm==="stops"?"white":T.sub)+';font-size:12px;cursor:pointer;font-family:inherit">何つ前の停留所</button>'
-    +'<button onclick="S.nm='minutes';S.notifDirty=true;render()" style="flex:1;padding:7px;border:none;border-radius:8px;background:'+(S.nm==="minutes"?T.acc:"none")+';color:'+(S.nm==="minutes"?"white":T.sub)+';font-size:12px;cursor:pointer;font-family:inherit">何分前</button>'
+    +'<button onclick="S.nm=\'stops\';S.notifDirty=true;render()" style="flex:1;padding:7px;border:none;border-radius:8px;background:'+(S.nm==="stops"?T.acc:"none")+';color:'+(S.nm==="stops"?"white":T.sub)+';font-size:12px;cursor:pointer;font-family:inherit">何つ前の停留所</button>'
+    +'<button onclick="S.nm=\'minutes\';S.notifDirty=true;render()" style="flex:1;padding:7px;border:none;border-radius:8px;background:'+(S.nm==="minutes"?T.acc:"none")+';color:'+(S.nm==="minutes"?"white":T.sub)+';font-size:12px;cursor:pointer;font-family:inherit">何分前</button>'
     +'</div>';
     if(S.nm==="stops"){
       html+='<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;color:'+T.sub+';margin-bottom:8px"><span>前の停留所数</span><span style="color:'+T.acc+';font-weight:700">'+S.ns+'つ前</span></div>'
