@@ -82,7 +82,8 @@ var S={
   LOCK_DURATION:30000,
   GPS_EXPIRE:60000,
   pushEndpoint:null,  // Web Push の届け先URL
-notifDirty:false  // 通知タイミング設定を変更したあと、まだ「設定を反映」を押していないかどうか
+notifDirty:false,  // 通知タイミング設定を変更したあと、まだ「設定を反映」を押していないかどうか
+notifConfirmed:false  // 今回選んだ便について、通知設定画面を開いて確認したかどうか
 };
 function gn(){var n=new Date();return n.getHours()*60+n.getMinutes()+n.getSeconds()/60;}
 S.now=gn();
@@ -368,6 +369,7 @@ function selectTargetBus(timeStr,headsign){
   S.nids=[];
   S.lastTargetPos=null;
   S.notifDirty=false;
+  S.notifConfirmed=false;
   updatePushSettings();
   saveState();
   render();
@@ -1137,14 +1139,14 @@ function render(){
 
   var notifPerm=('Notification' in window)?Notification.permission:'denied';
   html+='<div style="padding-bottom:10px">'
-  +'<button onclick="S.ss=!S.ss;if(S.ss)S.ssScroll=true;render()" class="btn" style="width:100%;padding:11px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:12px;color:white;font-size:13px;margin-bottom:10px">'
+  +'<button onclick="if(!S.ss){S.notifConfirmed=true;}S.ss=!S.ss;if(S.ss)S.ssScroll=true;render()" class="btn" style="width:100%;padding:11px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:12px;color:white;font-size:13px;margin-bottom:10px">'
   +(S.targetBus?'⚙️ 通知設定（🎯 '+ft(S.targetBus.arrivalMin)+'）':'⚙️ 通知設定')
   +' '+(S.ss?"▲":"▼")+'</button>';
 
   var busStatusLabel=S.targetBus?"完了":"未実施";
-  var notifStatusLabel=!S.targetBus?"未実施":(notifPerm!=='granted'?"未実施":(S.notifDirty?"未反映":"完了"));
+  var notifStatusLabel=!S.targetBus?"未実施":(notifPerm!=='granted'?"未実施":(S.notifDirty?"未反映":(S.notifConfirmed?"完了":"前回の設定を使用中")));
   var busStatusColor=busStatusLabel==="完了"?"#22c55e":"#64748b";
-  var notifStatusColor=notifStatusLabel==="完了"?"#22c55e":notifStatusLabel==="未反映"?"#eab308":"#64748b";
+  var notifStatusColor=notifStatusLabel==="完了"?"#22c55e":notifStatusLabel==="未反映"?"#eab308":notifStatusLabel==="前回の設定を使用中"?"#14b8a6":"#64748b";
   html+='<div style="display:flex;gap:8px;margin-bottom:10px;font-size:11px">'
   +'<span style="background:rgba(0,0,0,0.2);border-radius:6px;padding:4px 8px;color:'+busStatusColor+';font-weight:700">🚌 バス指定：'+busStatusLabel+'</span>'
   +'<span style="background:rgba(0,0,0,0.2);border-radius:6px;padding:4px 8px;color:'+notifStatusColor+';font-weight:700">🔔 通知設定：'+notifStatusLabel+'</span>'
@@ -1278,7 +1280,7 @@ function render(){
       html+='<button onclick="subscribePush()" class="btn" style="width:100%;padding:11px;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white;margin-bottom:8px">🔔 スマホ通知をオンにする</button>';
     }
 
-    html+='<button onclick="updatePushSettings();S.notifDirty=false;S.ss=false;S.showTimetable=false;render()" class="btn" style="width:100%;padding:12px;background:linear-gradient(135deg,#059669,#0891b2);color:white;font-size:14px;margin-bottom:14px">✅ 設定を反映</button>';
+    html+='<button onclick="updatePushSettings();S.notifDirty=false;S.notifConfirmed=true;S.ss=false;S.showTimetable=false;render()" class="btn" style="width:100%;padding:12px;background:linear-gradient(135deg,#059669,#0891b2);color:white;font-size:14px;margin-bottom:14px">✅ 設定を反映</button>';
 
     html+='<div id="stop-select-area" style="background:'+T.card+';border-radius:14px;padding:16px;border:1px solid '+T.border+'">'
     +'<div style="font-size:13px;font-weight:600;margin-bottom:10px;color:'+T.text+'">🎯 乗車停留所</div>'
