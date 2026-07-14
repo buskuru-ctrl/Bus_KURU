@@ -1132,9 +1132,9 @@ function render(){
   +'<div style="font-size:22px;font-weight:800;color:white">'+ft(S.now)+'</div>'
   +'</div>'
   +'<div style="display:flex;gap:6px;padding-bottom:12px">'
-  +'<button onclick="goChangeCompany()" style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;cursor:pointer;font-family:inherit">🏠 トップに戻る</button>'
-  +'<button onclick="goChangeStop()" style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;cursor:pointer;font-family:inherit">🚏 バス停を変更</button>'
-  +'<button onclick="S.showTimetable=!S.showTimetable;if(S.showTimetable)S.ttScroll=true;render()" style="flex:1;padding:7px;background:'+(S.showTimetable?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.15)")+';border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;cursor:pointer;font-family:inherit">📋 時刻表</button>'
+  +'<button onclick="goChangeCompany()" style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;cursor:pointer;font-family:inherit">🏠 トップに戻る</button>'
+  +'<button onclick="goChangeStop()" style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;cursor:pointer;font-family:inherit">🚏 バス停を変更</button>'
+  +'<button onclick="S.showTimetable=!S.showTimetable;if(S.showTimetable)S.ttScroll=true;render()" style="flex:1;padding:7px;background:'+(S.showTimetable?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.15)")+';border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;cursor:pointer;font-family:inherit">📋 時刻表</button>'
   +'</div>';
 
   var notifPerm=('Notification' in window)?Notification.permission:'denied';
