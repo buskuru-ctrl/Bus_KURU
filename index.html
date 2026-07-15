@@ -511,6 +511,23 @@ function saveFavModal(){
   var m=S.favModal;if(!m)return;
   var inp=document.getElementById('fav-label-input');
   var label=inp?inp.value.trim():"";
+  if(!m.listContext&&m.hasTargetBus&&S.route&&S.route.timetable){
+    var dowToType2={mon:'weekday',tue:'weekday',wed:'weekday',thu:'weekday',fri:'weekday',sat:'holiday',sun:'holiday'};
+    var dayLabelMap2={mon:'月',tue:'火',wed:'水',thu:'木',fri:'金',sat:'土',sun:'日'};
+    var missingDays=DAY_KEYS.filter(function(d){
+      if(!m.days[d])return false;
+      var entries=S.route.timetable[dowToType2[d]]||[];
+      var found=entries.some(function(en){
+        return ft(pt(en.timeStr))===m.targetBusInfo.time&&(en.headsign||"")===(m.targetBusInfo.headsign||"");
+      });
+      return !found;
+    });
+    if(missingDays.length){
+      var labelsStr=missingDays.map(function(d){return dayLabelMap2[d];}).join('・');
+      var ok2=confirm(labelsStr+'曜日には、同じ時刻（'+m.targetBusInfo.time+' '+(m.targetBusInfo.headsign||"")+'）のバスがありません。\nこのまま保存しますか？');
+      if(!ok2)return;
+    }
+  }
   if(m.listContext){
     var f=S.favorites[m.index];if(!f)return;
     f.label=label;f.days=Object.assign({},m.days);
