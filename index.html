@@ -975,6 +975,22 @@ function renderDiaBadge(T){
   var html='<div style="font-size:11px;color:rgba(255,255,255,0.85);margin-bottom:8px;text-align:center">'+label+'</div>';
   return html;
 }
+function fitNavButtons(){
+  ['nb-home','nb-stop','nb-timetable'].forEach(function(id){
+    var btn=document.getElementById(id);
+    if(!btn)return;
+    var txt=btn.querySelector('.nb-txt');
+    if(!txt)return;
+    var maxWidth=btn.clientWidth-14;
+    if(maxWidth<=0)return;
+    var size=13;
+    txt.style.fontSize=size+'px';
+    while(txt.scrollWidth>maxWidth&&size>9){
+      size--;
+      txt.style.fontSize=size+'px';
+    }
+  });
+}
 function render(){
   var T=TH[S.theme];
   document.body.style.background=T.bg;
@@ -1132,9 +1148,9 @@ function render(){
   +'<div style="font-size:22px;font-weight:800;color:white">'+ft(S.now)+'</div>'
   +'</div>'
   +'<div style="display:flex;gap:6px;padding-bottom:12px">'
-  +'<button onclick="goChangeCompany()" style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;cursor:pointer;font-family:inherit">🏠 トップに戻る</button>'
-  +'<button onclick="goChangeStop()" style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;cursor:pointer;font-family:inherit">🚏 バス停を変更</button>'
-  +'<button onclick="S.showTimetable=!S.showTimetable;if(S.showTimetable)S.ttScroll=true;render()" style="flex:1;padding:7px;background:'+(S.showTimetable?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.15)")+';border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;cursor:pointer;font-family:inherit">📋 時刻表</button>'
+  +'<button id="nb-home" onclick="goChangeCompany()" style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;overflow:hidden;min-width:0;cursor:pointer;font-family:inherit"><span class="nb-txt" style="white-space:nowrap;display:inline-block">🏠 トップに戻る</span></button>'
+  +'<button id="nb-stop" onclick="goChangeStop()" style="flex:1;padding:7px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;overflow:hidden;min-width:0;cursor:pointer;font-family:inherit"><span class="nb-txt" style="white-space:nowrap;display:inline-block">🚏 バス停を変更</span></button>'
+  +'<button id="nb-timetable" onclick="S.showTimetable=!S.showTimetable;if(S.showTimetable)S.ttScroll=true;render()" style="flex:1;padding:7px;background:'+(S.showTimetable?"rgba(255,255,255,0.4)":"rgba(255,255,255,0.15)")+';border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:white;overflow:hidden;min-width:0;cursor:pointer;font-family:inherit"><span class="nb-txt" style="white-space:nowrap;display:inline-block">📋 時刻表</span></button>'
   +'</div>';
 
   var notifPerm=('Notification' in window)?Notification.permission:'denied';
@@ -1339,6 +1355,7 @@ function render(){
 
   if(S.favModal)html+=renderFavModal(T);
   app.innerHTML=html;
+  fitNavButtons();
 
   // 時刻表を開いた直後だけ、今の時間帯まで自動でスクロールする
   if(S.showTimetable&&S.ttScroll){
