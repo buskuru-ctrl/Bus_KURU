@@ -485,7 +485,27 @@ function openFavEditFromList(i){
   render();
 }
 function closeFavModal(){S.favModal=null;render();}
-function toggleFavModalDay(d){if(!S.favModal)return;S.favModal.days[d]=!S.favModal.days[d];render();}
+function toggleFavModalDay(d){
+  if(!S.favModal)return;
+  var m=S.favModal;
+  var turningOn=!m.days[d];
+  if(turningOn&&m.hasTargetBus&&S.route&&S.route.timetable){
+    var dowToType={mon:'weekday',tue:'weekday',wed:'weekday',thu:'weekday',fri:'weekday',sat:'holiday',sun:'holiday'};
+    var dt=dowToType[d];
+    var entries=S.route.timetable[dt]||[];
+    var tb=m.targetBusInfo;
+    var found=entries.some(function(en){
+      return ft(pt(en.timeStr))===tb.time&&(en.headsign||"")===(tb.headsign||"");
+    });
+    if(!found){
+      var dayLabelMap={mon:'月',tue:'火',wed:'水',thu:'木',fri:'金',sat:'土',sun:'日'};
+      var ok=confirm(dayLabelMap[d]+'曜日には、同じ時刻（'+tb.time+' '+(tb.headsign||"")+'）のバスがありません。\nこのまま'+dayLabelMap[d]+'曜日も通知対象にしますか？');
+      if(!ok)return;
+    }
+  }
+  m.days[d]=!m.days[d];
+  render();
+}
 function toggleFavModalNotify(){if(!S.favModal)return;S.favModal.notify=!S.favModal.notify;render();}
 function saveFavModal(){
   var m=S.favModal;if(!m)return;
