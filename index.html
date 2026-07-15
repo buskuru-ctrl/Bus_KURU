@@ -74,6 +74,7 @@ var S={
   mn:"",ms:"",mt:"",mi:"3",
   favorites:[],
   favModal:null,
+  setupModal:null,
   theme:getTheme(),dayType:getDayType(),
   targetBus:null,
   lockedTripId:null,lockedAt:0,
@@ -603,6 +604,37 @@ function renderFavModal(T){
   return h;
 }
 
+function openSetupModal(platform){S.setupModal=platform;render();}
+function closeSetupModal(){S.setupModal=null;render();}
+function renderSetupModal(T){
+  var isAndroid=S.setupModal==='android';
+  var modalBg=(S.theme==="day")?"#ffffff":"#1c1430";
+  var title=isAndroid?'🤖 Androidユーザー用設定手順':'📱 iPhoneユーザー用設定手順';
+  var steps=isAndroid?[
+    'Chromeでバスクルを開く',
+    '画面に出てくる通知の許可ポップアップで「許可」を選ぶ',
+    '（お好みで）ホーム画面に追加すると、アプリのように使えて便利'
+  ]:[
+    'Safariでバスクルを開く',
+    '画面下の「共有」ボタン（四角に矢印のアイコン）をタップ',
+    '「ホーム画面に追加」を選ぶ',
+    'ホーム画面に追加されたバスクルのアイコンから開き直す',
+    '通知の許可ポップアップが出たら「許可」を選ぶ',
+    'iOSのバージョンが16.4より古いと通知が使えません。その場合は端末の設定からiOSをアップデートしてください'
+  ];
+  var h='<div onclick="closeSetupModal()" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:399"></div>'
+  +'<div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:400;background:'+modalBg+';border:1px solid '+T.border+';border-radius:16px;padding:20px;max-width:340px;width:90vw;max-height:85vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.4)">'
+  +'<div style="font-size:16px;font-weight:700;color:'+T.text+';margin-bottom:14px">'+title+'</div>'
+  +'<div style="font-size:13px;color:'+T.text+';line-height:2.2;margin-bottom:16px">';
+  steps.forEach(function(s,i){
+    h+='<div style="margin-bottom:8px"><span style="color:'+T.acc+';font-weight:700">'+(i+1)+'. </span>'+e(s)+'</div>';
+  });
+  h+='</div>'
+  +'<button onclick="closeSetupModal()" class="btn" style="width:100%;padding:11px;background:'+T.acc+';color:white;font-size:14px">閉じる</button>'
+  +'</div>';
+  return h;
+}
+
 function gb(){
   if(!S.route)return[];
   var iv=3.5,now=S.now;
@@ -1096,6 +1128,13 @@ function render(){
     +'<input id="sq" type="text" style="flex:1;border-radius:12px;padding:12px 14px;font-size:15px;background:'+T.card+';border:1px solid '+T.border+';color:'+T.text+';font-family:inherit;outline:none" placeholder="バス会社名（例：〇〇バス、△△交通）" value="'+e(S.sq)+'">'
     +'<button onclick="S.sq=document.getElementById(\'sq\').value;hs2()" class="btn" style="padding:12px 16px;background:'+T.acc+';color:white;font-size:15px;flex-shrink:0">検索</button>'
     +'</div>';
+    h2+='<div style="background:'+T.card+';border:1px solid '+T.border+';border-radius:12px;padding:12px;margin-bottom:14px">'
+    +'<div style="font-size:13px;font-weight:700;color:'+T.text+';margin-bottom:6px">📱 まずはじめに</div>'
+    +'<div style="font-size:12px;font-weight:800;color:#ef4444;margin-bottom:10px">⚠️ この手順を踏まないと通知が届きません</div>'
+    +'<div style="display:flex;flex-direction:column;gap:8px">'
+    +'<button onclick="openSetupModal(\'android\')" class="btn" style="width:100%;padding:10px;background:'+T.bg+';border:1px solid '+T.border+';color:'+T.text+';font-size:13px">🤖 Androidユーザー用設定手順</button>'
+    +'<button onclick="openSetupModal(\'ios\')" class="btn" style="width:100%;padding:10px;background:'+T.bg+';border:1px solid '+T.border+';color:'+T.text+';font-size:13px">📱 iPhoneユーザー用設定手順</button>'
+    +'</div></div>';
     if(S.le)h2+='<div style="background:#450a0a;border-radius:10px;padding:10px 14px;margin-bottom:10px;font-size:13px;color:#f87171">'+e(S.le)+'</div>';
     if(S.lm)h2+='<div style="text-align:center;color:'+T.sub+';font-size:13px;margin-bottom:8px">'+e(S.lm)+'</div>';
     if(S.sr.length){
@@ -1111,6 +1150,7 @@ function render(){
     }
     h2+='<div style="text-align:center"><button onclick="S.scr=\'manual\';render()" style="background:none;border:none;color:'+T.sub+';font-size:13px;cursor:pointer;text-decoration:underline">手動で入力する</button></div>'
     +'</div></div>';
+    if(S.setupModal)h2+=renderSetupModal(T);
     app.innerHTML=h2;
     var sq2=document.getElementById("sq");
     if(sq2)sq2.onkeydown=function(ev){if(ev.key==="Enter"){S.sq=sq2.value;hs2();}};
